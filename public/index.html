@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PortHop</title>
+<style>
+  :root {
+    --bg: #0a0c12; --panel: rgba(255,255,255,.04); --panel-2: rgba(255,255,255,.07);
+    --line: rgba(255,255,255,.08); --text: #e8ebf3; --dim: #8a92a6;
+    --a: #38bdf8; --b: #8b5cf6; --ok: #34d399; --warn: #fbbf24; --bad: #f87171;
+    --grad: linear-gradient(135deg, var(--a), var(--b));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.45 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    background-image:
+      radial-gradient(900px 500px at 8% -10%, rgba(56,189,248,.14), transparent 60%),
+      radial-gradient(800px 500px at 100% 0%, rgba(139,92,246,.14), transparent 60%);
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 1840px; margin: 0 auto; padding: 0 20px 60px; }
+  .sticky { position: sticky; top: 0; z-index: 20; margin: 0 -20px 18px; padding: 16px 20px 14px; background: rgba(10,12,18,.84); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
+  .sticky header { margin-bottom: 12px; }
+  .sticky .bar { margin-bottom: 0; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 24px; align-items: start; }
+  aside.side { position: sticky; top: var(--stick, 140px); max-height: calc(100vh - var(--stick, 140px) - 16px); overflow-y: auto; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); padding: 14px; scrollbar-width: thin; }
+  @media (max-width: 1050px) { .layout { grid-template-columns: 1fr; } aside.side { position: static; max-height: none; } }
+  .phead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .sec { display: flex; align-items: center; gap: 8px; padding: 6px 4px; font-weight: 700; font-size: 15px; color: var(--text); }
+  .sec .count { font-weight: 500; font-size: 12px; color: var(--dim); padding: 1px 8px; border-radius: 999px; background: var(--panel-2); }
+  .group { margin-bottom: 22px; }
+  .group > .sec { margin-bottom: 10px; }
+  .star { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--dim); font-size: 18px; line-height: 1; opacity: .45; transition: .15s; }
+  .card:hover .star, .star:focus-visible, .star.on { opacity: 1; }
+  .star:hover { background: var(--panel-2); color: var(--warn); }
+  .star.on { color: var(--warn); }
+  .mlist { display: flex; flex-direction: column; gap: 8px; }
+  .mrow { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
+  .mmain { flex: 1; min-width: 0; }
+  .mname { font-weight: 600; font-size: 13.5px; overflow-wrap: anywhere; }
+  .msub { color: var(--dim); font: 12px ui-monospace, Consolas, monospace; margin-top: 2px; overflow-wrap: anywhere; }
+  .macts { display: flex; flex: none; }
+  header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -.02em; }
+  .logo i { width: 30px; height: 30px; border-radius: 9px; background: var(--grad); display: grid; place-items: center; box-shadow: 0 6px 24px rgba(99,102,241,.45); }
+  .logo svg { width: 18px; height: 18px; }
+  .spacer { flex: 1; }
+  .pill { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(10px); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+  .dot.bad { background: var(--bad); box-shadow: 0 0 10px var(--bad); }
+  .dot.wait { background: var(--warn); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .meta { color: var(--dim); font-size: 12.5px; }
+  .meta b { color: var(--text); font-weight: 600; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .ghost { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; transition: .15s; }
+  .ghost:hover { background: var(--panel-2); }
+  .banner { padding: 12px 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid; display: none; }
+  .banner.show { display: block; }
+  .banner.warn { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.35); color: #fde68a; }
+  .banner.bad { background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.35); color: #fecaca; }
+  .bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
+  .search { flex: 1; min-width: 220px; position: relative; }
+  .search input { width: 100%; padding: 11px 14px 11px 38px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; outline: none; }
+  .search input:focus, dialog input:focus, dialog select:focus { border-color: var(--a); box-shadow: 0 0 0 3px rgba(56,189,248,.18); }
+  .search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--dim); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { padding: 7px 13px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--dim); font-size: 13px; transition: .15s; }
+  .chip:hover { color: var(--text); }
+  .chip.on { background: var(--grad); color: #fff; border-color: transparent; }
+  .primary { background: var(--grad); border: 0; color: #fff; font-weight: 600; padding: 10px 16px; border-radius: 12px; box-shadow: 0 6px 20px rgba(99,102,241,.35); transition: .15s; }
+  .primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(10px); transition: .2s; }
+  .card:hover { border-color: rgba(255,255,255,.18); transform: translateY(-2px); }
+  .card.active { border-color: rgba(52,211,153,.45); background: linear-gradient(180deg, rgba(52,211,153,.07), var(--panel)); }
+  .top { display: flex; gap: 12px; align-items: center; }
+  .cover { width: 64px; height: 96px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; font-size: 18px; color: #fff; flex: none; text-shadow: 0 1px 2px rgba(0,0,0,.3); overflow: hidden; position: relative; box-shadow: 0 8px 20px rgba(0,0,0,.4); }
+  .cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .35s; }
+  .cover img.in { opacity: 1; }
+  .card.running { border-color: rgba(251,191,36,.6); background: linear-gradient(180deg, rgba(251,191,36,.09), var(--panel)); animation: glow 2.4s ease-in-out infinite; }
+  .card.running.active { border-color: rgba(52,211,153,.55); background: linear-gradient(180deg, rgba(52,211,153,.09), var(--panel)); animation: none; }
+  @keyframes glow { 50% { box-shadow: 0 0 0 4px rgba(251,191,36,.14), 0 0 28px rgba(251,191,36,.18); } }
+  .badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: rgba(251,191,36,.15); color: var(--warn); }
+  .badge.ok { background: rgba(52,211,153,.15); color: var(--ok); }
+  .badge i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .card.running:not(.active) .fwd { background: var(--grad); border-color: transparent; color: #fff; box-shadow: 0 6px 20px rgba(99,102,241,.35); }
+  .toast .act { margin-left: 12px; padding: 4px 10px; border-radius: 8px; border: 0; background: var(--grad); color: #fff; font-weight: 600; }
+  .card { position: relative; }
+  .cog { position: absolute; top: 10px; right: 44px; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--dim); font-size: 17px; line-height: 1; opacity: .45; transition: .15s; }
+  .card:hover .cog, .cog:focus-visible { opacity: 1; }
+  .cog:hover { background: var(--panel-2); color: var(--text); }
+  .card .top > div:last-child { padding-right: 62px; }
+  dialog.wide { width: min(520px, 94vw); max-height: 92vh; overflow-y: auto; }
+  .e-top { display: flex; gap: 16px; align-items: center; }
+  .e-cover { width: 90px; height: 135px; font-size: 26px; }
+  .e-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .optional { opacity: .6; }
+  .prow { display: grid; grid-template-columns: 112px 1fr 34px; gap: 8px; margin-top: 8px; }
+  .prow:first-child { margin-top: 0; }
+  .ghost.danger:hover { color: var(--bad); border-color: rgba(248,113,113,.45); }
+  .row .spacer { flex: 1; }
+  .row { align-items: center; }
+  .tag.mod { background: rgba(139,92,246,.18); color: #c4b5fd; }
+  .card.addnew { border-style: dashed; cursor: pointer; }
+  .card.addnew:hover { border-color: var(--a); }
+  .iconbtn { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; }
+  .help { color: var(--dim); font-size: 12px; margin-top: 8px; }
+  .help a { color: var(--a); }
+  .name { font-weight: 600; font-size: 15px; }
+  .cat { color: var(--dim); font-size: 12px; }
+  .ports { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; align-content: flex-start; }
+  .port { font: 12px/1 ui-monospace, "Cascadia Code", Consolas, monospace; padding: 5px 8px; border-radius: 7px; background: rgba(255,255,255,.06); color: #cbd2e1; }
+  .port b { color: var(--a); font-weight: 600; margin-right: 4px; }
+  .note { color: var(--dim); font-size: 12px; }
+  .btns { display: flex; gap: 8px; }
+  .btns .fwd { flex: 1; width: auto; }
+  .copy { padding: 10px 14px; border-radius: 11px; border: 1px solid var(--line); background: var(--panel-2); font-weight: 600; white-space: nowrap; transition: .15s; }
+  .copy:hover { background: var(--grad); border-color: transparent; color: #fff; }
+  .infoline { padding: 10px 14px; margin-bottom: 10px; border-radius: 10px; font-size: 12.5px; color: var(--dim); background: var(--panel); border: 1px solid var(--line); }
+  .fwd { width: 100%; padding: 10px; border-radius: 11px; border: 1px solid var(--line); background: var(--panel-2); font-weight: 600; transition: .15s; }
+  .fwd:hover { background: var(--grad); border-color: transparent; color: #fff; }
+  .card.active .fwd { flex: 0 0 auto; padding: 10px 16px; background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.35); color: var(--bad); }
+  .card.active .fwd:hover { background: rgba(248,113,113,.2); border-color: rgba(248,113,113,.6); color: #fecaca; }
+  .btns .copy { flex: 1; }
+  .card.active .btns .copy { background: rgba(52,211,153,.14); border-color: rgba(52,211,153,.4); color: var(--ok); }
+  .card.active .btns .copy:hover { background: var(--grad); border-color: transparent; color: #fff; }
+  dialog label.chk { display: flex; align-items: center; gap: 10px; color: var(--text); font-size: 13.5px; margin-top: 14px; cursor: pointer; }
+  dialog label.chk input { width: auto; }
+  .rm { color: var(--bad) !important; }
+  .rm:hover { background: rgba(248,113,113,.12) !important; }
+  h2 .spacer { flex: 1; }
+  .fwd:disabled { opacity: .55; cursor: progress; }
+  h2 { font-size: 16px; margin: 34px 0 12px; display: flex; align-items: center; gap: 10px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  th { color: var(--dim); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  tr:last-child td { border-bottom: 0; }
+  td.num { font-family: ui-monospace, Consolas, monospace; }
+  .tag { font-size: 11px; padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,.08); color: var(--dim); }
+  .tag.ours { background: rgba(56,189,248,.15); color: var(--a); }
+  .empty { padding: 26px; text-align: center; color: var(--dim); background: var(--panel); border: 1px dashed var(--line); border-radius: 14px; }
+  .x { background: none; border: 0; color: var(--dim); padding: 4px 8px; border-radius: 6px; }
+  .x:hover { color: var(--bad); background: rgba(248,113,113,.1); }
+  dialog { border: 1px solid var(--line); border-radius: 18px; background: #12151f; color: var(--text); padding: 24px; width: min(420px, 92vw); }
+  dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(4px); }
+  dialog h3 { margin: 0 0 16px; }
+  dialog label { display: block; color: var(--dim); font-size: 12px; margin: 12px 0 5px; }
+  dialog input, dialog select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; outline: none; }
+  dialog select option { background: #12151f; }
+  .row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  #toasts { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
+  .toast { padding: 12px 16px; border-radius: 12px; background: #1a1e2b; border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.4); max-width: 360px; animation: in .2s ease; }
+  .toast.ok { border-left: 3px solid var(--ok); } .toast.bad { border-left: 3px solid var(--bad); }
+  @keyframes in { from { opacity: 0; transform: translateY(8px); } }
+  footer { margin-top: 40px; color: var(--dim); font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="sticky" id="sticky">
+  <header>
+    <div class="logo"><i><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i>PortHop</div>
+    <div class="spacer"></div>
+    <div class="pill" id="status"><span class="dot wait"></span><span class="meta">Looking for your router…</span></div>
+    <button class="ghost" id="rescan">Rescan</button>
+    <button class="ghost iconbtn" id="gear" title="Settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </header>
+  <div class="bar">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" placeholder="Search games…" autocomplete="off">
+    </div>
+    <div class="chips" id="chips"></div>
+    <button class="primary" id="custom">+ Add game</button>
+  </div>
+  </div>
+
+  <div class="banner" id="banner"></div>
+
+  <div class="layout">
+    <main id="grid"></main>
+    <aside class="side">
+      <div class="phead">
+        <div class="sec">Active forwards <span class="count" id="maps-count">0</span></div>
+        <span class="spacer"></span>
+        <button class="ghost" id="refresh" style="font-size:12px;padding:4px 10px">Refresh</button>
+        <button class="ghost rm" id="remove-all" style="font-size:12px;padding:4px 10px">Remove all</button>
+      </div>
+      <div id="maps"></div>
+    </aside>
+  </div>
+
+  <footer>Ports are each game's documented defaults. If you changed your server's port, hit the <b>⚙</b> on its card to edit it. Forwards stay on the router until removed or the router reboots.</footer>
+</div>
+
+<dialog id="edlg" class="wide">
+  <form id="eform" autocomplete="off">
+    <h3 id="e-title">Edit game</h3>
+    <div class="e-top">
+      <div class="cover e-cover" id="e-cover"></div>
+      <div>
+        <div class="e-btns">
+          <button type="button" class="ghost" id="e-upload">Upload cover…</button>
+          <button type="button" class="ghost" id="e-covreset">Reset cover</button>
+        </div>
+        <input type="file" id="e-file" accept="image/png,image/jpeg,image/webp" hidden>
+        <div class="help">Any image — it's cropped to a 2:3 poster.</div>
+      </div>
+    </div>
+    <label>Name</label><input id="e-name" maxlength="40" required placeholder="My Palworld server">
+    <label>Category</label><input id="e-cat" list="e-cats" maxlength="20" placeholder="Survival"><datalist id="e-cats"></datalist>
+    <label>Ports</label>
+    <div id="e-ports"></div>
+    <button type="button" class="ghost" id="e-addport" style="margin-top:8px">+ Add port</button>
+    <label>Detect running server <span class="optional">(process names, comma separated)</span></label>
+    <input id="e-procs" placeholder="PalServer, java@25565">
+    <label>Note <span class="optional">(optional)</span></label><input id="e-note" maxlength="100">
+    <div class="row">
+      <button type="button" class="ghost danger" id="e-reset">Reset to default</button>
+      <span class="spacer"></span>
+      <button type="button" class="ghost" id="e-cancel">Cancel</button>
+      <button class="primary" type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="sdlg">
+  <form method="dialog" id="sform">
+    <h3>Settings</h3>
+    <label>SteamGridDB API key (optional)</label>
+    <input id="s-key" type="password" placeholder="Paste key to enable more cover art" autocomplete="off" spellcheck="false">
+    <div class="help" id="s-state"></div>
+    <div class="help">Covers for Steam games work without a key. A key adds non-Steam games (Minecraft, consoles) and any game you search for. Get a free one at <a href="https://www.steamgriddb.com/profile/preferences/api" target="_blank" rel="noopener noreferrer">steamgriddb.com</a>.</div>
+    <label class="chk"><input type="checkbox" id="s-startup"> <span id="s-startup-label">Start PortHop with Windows (runs in the tray)</span></label>
+    <div class="help" id="s-startup-note"></div>
+    <label class="chk"><input type="checkbox" id="s-restore"> Restore my forwards when PortHop starts</label>
+    <div class="help" id="s-tray-note"></div>
+    <div class="row"><button type="button" class="ghost rm" id="s-quit">Quit PortHop</button><button type="button" class="ghost rm" id="s-quit-close">Quit &amp; close forwards</button><span style="flex:1"></span><button type="button" class="ghost" id="s-cancel">Close</button><button class="primary" value="ok">Save</button></div>
+  </form>
+</dialog>
+<div id="toasts"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === 'class') el.className = v; else if (k.startsWith('on')) el.addEventListener(k.slice(2), v); else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null) el.append(kid);
+  return el;
+}
+async function api(path, body) {
+  const opt = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-PortHop': '1' }, body: JSON.stringify(body) };
+  const r = await fetch(path, opt);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || 'Request failed');
+  return j;
+}
+function toast(msg, kind = 'ok', action = null) {
+  const t = h('div', { class: 'toast ' + kind }, msg);
+  if (action) t.append(h('button', { class: 'act', onclick: () => { t.remove(); action.fn(); } }, action.label));
+  $('#toasts').append(t);
+  setTimeout(() => t.remove(), action ? 15000 : 4500);
+}
+
+let games = [], mappings = [], st = null, cat = 'All', query = '', enumNote = null;
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* fall through */ }
+  const ta = h('textarea', { style: 'position:fixed;left:-9999px;opacity:0' });
+  ta.value = text; document.body.append(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch { /* ignore */ }
+  ta.remove(); return ok;
+}
+async function copyAddress(port) {
+  const ip = st && st.externalIp;
+  if (!ip) { toast('Your public IP isn’t known yet — check the router status at the top.', 'bad'); return; }
+  const text = ip + ':' + port;
+  if (!(await copyText(text))) { toast('Couldn’t access the clipboard. Address: ' + text, 'bad'); return; }
+  toast(st.cgnat ? `Copied ${text} — but your ISP shares this IP, so friends may not reach it` : `Copied ${text}`);
+}
+const running = new Map(); // gameId -> process name, from the local process scan
+const announced = new Set(); // games we've already nagged about this session
+
+// ---- status ----
+function renderStatus() {
+  const box = $('#status'); box.replaceChildren();
+  const banner = $('#banner'); banner.className = 'banner'; banner.textContent = '';
+  if (!st) { box.append(h('span', { class: 'dot wait' }), h('span', { class: 'meta' }, 'Looking for your router…')); return; }
+  if (!st.found) {
+    box.append(h('span', { class: 'dot bad' }), h('span', { class: 'meta' }, 'No router found'));
+    banner.className = 'banner bad show';
+    banner.textContent = (st.error || 'No UPnP router found.') + ' Enable UPnP in your router admin page, then hit Rescan.';
+    return;
+  }
+  box.append(h('span', { class: 'dot ok' }),
+    h('span', { class: 'meta' }, h('b', {}, st.router), ' · public ', h('b', { title: st.externalIp ? '' : 'Could not read the public IP from the router' + (st.ipError ? ': ' + st.ipError : '') }, st.externalIp || '?'), ' · this PC ', h('b', {}, st.localIp)));
+  if (st.cgnat) {
+    banner.className = 'banner warn show';
+    banner.textContent = 'Your public IP (' + st.externalIp + ') is a private/CGNAT address, so your ISP is sharing one address between customers. Forwarding will succeed on the router but friends still won’t be able to reach you. Ask your ISP for a public IP, or use a VPN/tunnel.';
+  }
+}
+
+// ---- games ----
+const hue = (s) => { let x = 0; for (const c of s) x = (x * 31 + c.charCodeAt(0)) >>> 0; return x % 360; };
+const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+// ---- cover art: local cache first, then ask the server to fetch; max 3 at a time ----
+const artUrls = new Map();   // id -> object URL | false (not found)
+const artPending = new Set();
+const artVer = new Map();    // id -> cache-buster, bumped when a cover changes
+function bustArt(id) { const u = artUrls.get(id); if (u) URL.revokeObjectURL(u); artUrls.delete(id); artVer.set(id, Date.now()); }
+let artActive = 0; const artWaiting = [];
+function artSlot() { return new Promise((r) => { if (artActive < 3) { artActive++; r(); } else artWaiting.push(r); }); }
+function artDone() { artActive--; const n = artWaiting.shift(); if (n) { artActive++; n(); } }
+function paintCover(id) {
+  const url = artUrls.get(id);
+  if (!url) return;
+  document.querySelectorAll('.cover[data-id="' + id + '"]').forEach((box) => {
+    if (box.querySelector('img')) return;
+    const img = h('img', { alt: '' });
+    img.onload = () => img.classList.add('in');
+    img.src = url; box.append(img);
+  });
+}
+async function resolveArt(id, fetchBody) {
+  if (artUrls.has(id) || artPending.has(id)) return;
+  artPending.add(id);
+  await artSlot();
+  try {
+    const src = '/art/' + id + '?v=' + (artVer.get(id) || 0);
+    let r = await fetch(src);
+    if (!r.ok) {
+      const j = await api('/api/art/fetch', fetchBody).catch(() => ({ ok: false }));
+      r = j.ok ? await fetch(src) : r;
+    }
+    artUrls.set(id, r.ok ? URL.createObjectURL(await r.blob()) : false);
+  } catch { artUrls.set(id, false); }
+  artPending.delete(id); artDone(); paintCover(id);
+}
+function coverEl(id, name, fetchBody) {
+  const hu = hue(name);
+  const box = h('div', { class: 'cover', 'data-id': id, style: `background:linear-gradient(135deg,hsl(${hu} 70% 55%),hsl(${(hu + 50) % 360} 70% 38%))` },
+    name.replace(/[^A-Za-z0-9 ]/g, '').split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase());
+  if (artUrls.get(id)) paintCover(id); else resolveArt(id, fetchBody);
+  queueMicrotask(() => paintCover(id));
+  return box;
+}
+function summarize(g) {
+  return g.ports.map(([p, r]) => h('span', { class: 'port' }, h('b', {}, p === 'TCP/UDP' ? 'TCP+UDP' : p), r));
+}
+function isActive(g) {
+  const ours = new Set(mappings.filter((m) => m.ours && m.mine).map((m) => m.protocol + '/' + m.port));
+  return g.expanded.every((e) => ours.has(e.protocol + '/' + e.port));
+}
+function renderChips() {
+  const cats = ['All', ...new Set(games.map((g) => g.category))];
+  $('#chips').replaceChildren(...cats.map((c) => h('button', { class: 'chip' + (c === cat ? ' on' : ''), onclick: () => { cat = c; renderChips(); renderGrid(); } }, c)));
+}
+function renderGrid() {
+  const list = games.filter((g) => (cat === 'All' || g.category === cat) && g.name.toLowerCase().includes(query))
+    .sort((a, b) => (running.has(b.id) ? 1 : 0) - (running.has(a.id) ? 1 : 0)); // running servers first (stable)
+  const grid = $('#grid'); grid.replaceChildren();
+  if (!list.length) {
+    const raw = $('#q').value.trim();
+    if (raw.length >= 2) {
+      grid.append(h('div', { class: 'grid' }, h('div', { class: 'card addnew', onclick: () => openCustom(raw) },
+        h('div', { class: 'top' }, coverEl('c-' + slug(raw), raw, { name: raw }),
+          h('div', {}, h('div', { class: 'name' }, raw), h('div', { class: 'cat' }, 'Not in the list — click to add your own ports'))),
+        h('div', { class: 'note' }, 'Cover art will be looked up automatically.'))));
+    } else grid.append(h('div', { class: 'empty' }, 'No games match.'));
+    return;
+  }
+  // Favourites first, then one collapsible group per category (or just the chosen category).
+  const groups = [];
+  const favList = list.filter((g) => favs.has(g.id));
+  if (favList.length) groups.push({ key: 'fav', title: '★ Favourites', items: favList });
+  const rest = list.filter((g) => !favs.has(g.id));
+  if (rest.length) groups.push({ key: 'all', title: favList.length ? 'All games' : null, items: rest }); // categories are filtered with the chips, not split into sections
+  for (const grp of groups) {
+    const head = grp.title ? h('div', { class: 'sec' }, grp.title, h('span', { class: 'count' }, String(grp.items.length))) : null;
+    grid.append(h('section', { class: 'group' }, head, h('div', { class: 'grid' }, grp.items.map(cardFor))));
+  }
+}
+function cardFor(g) {
+  {
+    const active = isActive(g);
+    const isRunning = running.has(g.id);
+    const btn = h('button', { class: 'fwd', title: active ? 'Close these ports on your router' : '', onclick: () => toggle(g, btn, active) }, active ? 'Remove' : isRunning ? 'Forward now' : 'Forward ports');
+    const badge = isRunning
+      ? (active ? h('div', { class: 'badge ok' }, h('i'), 'Server running · ports open') : h('div', { class: 'badge' }, h('i'), 'Server running · ports NOT forwarded'))
+      : (active ? h('div', { class: 'badge ok' }, h('i'), 'Ports open') : null);
+    return (h('div', { class: 'card' + (active ? ' active' : '') + (isRunning ? ' running' : '') },
+      h('button', { class: 'star' + (favs.has(g.id) ? ' on' : ''), title: favs.has(g.id) ? 'Remove from favourites' : 'Add to favourites', 'aria-label': 'Favourite ' + g.name, 'aria-pressed': favs.has(g.id) ? 'true' : 'false', onclick: () => toggleFav(g) }, favs.has(g.id) ? '★' : '☆'),
+      h('button', { class: 'cog', title: 'Customize', 'aria-label': 'Customize ' + g.name, onclick: () => openEditor(g) }, '⚙︎'),
+      h('div', { class: 'top' },
+        coverEl(g.id, g.name, { gameId: g.id }),
+        h('div', {}, h('div', { class: 'name' }, g.name), h('div', { class: 'cat' }, g.category), badge)),
+      h('div', { class: 'ports' }, summarize(g)),
+      g.note ? h('div', { class: 'note' }, g.note) : null,
+      h('div', { class: 'btns' }, g.expanded.length
+        ? h('button', { class: 'copy', title: 'Copy your public IP and port to share with friends', onclick: () => copyAddress(g.expanded[0].port) }, 'Copy IP')
+        : null, btn)));
+  }
+}
+// ---- favourites (kept on the server: this page's origin changes every launch) ----
+let favs = new Set();
+let uiTimer = null;
+function saveUi() { clearTimeout(uiTimer); uiTimer = setTimeout(() => api('/api/settings', { favs: [...favs] }).catch(() => {}), 300); }
+function toggleFav(g) { favs.has(g.id) ? favs.delete(g.id) : favs.add(g.id); saveUi(); renderGrid(); }
+// keep the side panel just below the sticky bar, whatever height it wraps to
+new ResizeObserver(() => document.documentElement.style.setProperty('--stick', ($('#sticky').offsetHeight + 16) + 'px')).observe($('#sticky'));
+async function toggle(g, btn, active) {
+  if (!st || !st.found) { toast('No router connected — try Rescan.', 'bad'); return; }
+  btn.disabled = true; btn.textContent = active ? 'Removing…' : 'Forwarding…';
+  try {
+    const { results } = await api(active ? '/api/remove' : '/api/forward', { gameId: g.id });
+    const bad = results.filter((r) => !r.ok);
+    if (bad.length) toast(`${g.name}: ${bad.length} of ${results.length} failed — ${bad[0].error}`, 'bad');
+    else toast(active ? `${g.name}: ${results.length} port${results.length > 1 ? 's' : ''} removed` : `${g.name} forwarded (${results.length} port${results.length > 1 ? 's' : ''})`);
+  } catch (e) { toast(e.message, 'bad'); }
+  await loadMappings();
+}
+
+// ---- local game-server detection ----
+let lastRunningKey = '';
+async function pollRunning() {
+  if (document.hidden) return;
+  let list;
+  try { list = (await api('/api/running')).running; } catch { return; }
+  const key = list.map((r) => r.gameId).sort().join(',');
+  if (key === lastRunningKey) return;
+  lastRunningKey = key;
+  running.clear(); list.forEach((r) => running.set(r.gameId, r.process));
+  renderGrid();
+  for (const r of list) {
+    const g = games.find((x) => x.id === r.gameId);
+    if (!g || announced.has(g.id) || isActive(g)) continue;
+    announced.add(g.id);
+    const btn = () => document.querySelector(`.cover[data-id="${g.id}"]`)?.closest('.card')?.querySelector('.fwd');
+    toast(`${g.name} server detected — its ports aren’t forwarded, so friends can’t join.`, 'bad', {
+      label: 'Forward now',
+      fn: () => { const b = btn(); if (b) toggle(g, b, false); },
+    });
+  }
+}
+
+// ---- mappings table ----
+async function loadMappings() {
+  try { const r = await api('/api/mappings'); mappings = r.mappings; enumNote = r.enumerationError || null; } catch { mappings = []; enumNote = null; }
+  renderGrid(); renderMaps();
+}
+// Per-row remove. Entries PortHop didn't create (other apps/games using UPnP) need a second click to confirm.
+function removeRowButton(m) {
+  let armed = false;
+  const btn = h('button', { class: 'x rm', title: m.ours ? 'Close this port' : 'This was not created by PortHop. Click twice to close it anyway.' }, 'Remove');
+  btn.onclick = async () => {
+    if (!m.ours && !armed) { armed = true; btn.textContent = 'Sure?'; setTimeout(() => { armed = false; btn.textContent = 'Remove'; }, 4000); return; }
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      const { results } = await api('/api/remove-entry', { port: m.port, protocol: m.protocol });
+      if (results.some((r) => !r.ok)) toast(results.find((r) => !r.ok).error, 'bad');
+      else if (results.every((r) => r.skipped)) toast('The router no longer lists that port', 'bad');
+      else toast(`Closed ${m.protocol} ${m.port}`);
+    } catch (e) { toast(e.message, 'bad'); }
+    loadMappings();
+  };
+  return btn;
+}
+let removeAllArmed = false;
+async function removeAll(btn) {
+  if (!removeAllArmed) { removeAllArmed = true; btn.textContent = 'Click again to confirm'; setTimeout(() => { removeAllArmed = false; btn.textContent = 'Remove all'; }, 4000); return; }
+  removeAllArmed = false; btn.disabled = true; btn.textContent = 'Removing…';
+  try {
+    const { results } = await api('/api/remove-all', {});
+    const bad = results.filter((r) => !r.ok);
+    bad.length ? toast(`${bad.length} of ${results.length} failed — ${bad[0].error}`, 'bad') : toast(`Closed ${results.length} port${results.length === 1 ? '' : 's'}`);
+  } catch (e) { toast(e.message, 'bad'); }
+  btn.disabled = false; btn.textContent = 'Remove all';
+  loadMappings();
+}
+function renderMaps() {
+  const box = $('#maps'); box.replaceChildren();
+  $('#maps-count').textContent = String(mappings.length);
+  const mine = mappings.filter((m) => m.ours);
+  if (enumNote) box.append(h('div', { class: 'infoline' }, 'Your router won’t list its full forwarding table (' + enumNote + '). Showing the forwards PortHop made, each checked directly with the router.'));
+  if (!mappings.length) { box.append(h('div', { class: 'empty' }, 'Nothing forwarded yet. Pick a game on the left.')); return; }
+  const rows = mappings.map((m) => h('div', { class: 'mrow' },
+    h('div', { class: 'mmain' },
+      h('div', { class: 'mname' }, m.description.replace(/^PortHop:\s*/, '') || '(unnamed)', ' ', m.ours ? h('span', { class: 'tag ours' }, 'PortHop') : h('span', { class: 'tag' }, 'other'), m.unverified ? h('span', { class: 'tag', title: 'The router could not confirm this entry' }, ' unverified') : null),
+      h('div', { class: 'msub' }, m.protocol + ' ' + m.port + ' → ' + m.internalClient)),
+    h('div', { class: 'macts' },
+      m.ours ? h('button', { class: 'x', title: 'Copy IP:port', onclick: () => copyAddress(m.port) }, 'Copy') : '',
+      m.mine ? removeRowButton(m) : '')));
+  box.append(h('div', { class: 'mlist' }, rows));
+}
+
+// ---- custom ----
+const openCustom = (name) => openEditor(null, name);
+$('#custom').onclick = () => openCustom('');
+
+// ---- game editor (cog on a card / "+ Add game") ----
+let editing = null;          // the game being edited, or null for a new one
+let edPorts = [];            // [{ proto, range }]
+let pendingCover;            // undefined = unchanged, Blob = new image, 'reset' = remove custom cover
+let pendingPreview = null;
+let confirmReset = false;
+
+function renderEdPorts() {
+  const box = $('#e-ports'); box.replaceChildren();
+  edPorts.forEach((p, i) => {
+    const sel = h('select', { 'aria-label': 'Protocol' }, ...[['TCP', 'TCP'], ['UDP', 'UDP'], ['TCP/UDP', 'TCP + UDP']].map(([v, t]) => h('option', { value: v, selected: v === p.proto ? '' : null }, t)));
+    sel.onchange = () => { p.proto = sel.value; };
+    const inp = h('input', { placeholder: '25565 or 7000-7010', value: p.range, 'aria-label': 'Port or range', inputmode: 'numeric' });
+    inp.oninput = () => { p.range = inp.value; };
+    box.append(h('div', { class: 'prow' }, sel, inp,
+      h('button', { type: 'button', class: 'x', title: 'Remove', onclick: () => { edPorts.splice(i, 1); if (!edPorts.length) edPorts.push({ proto: 'UDP', range: '' }); renderEdPorts(); } }, '✕')));
+  });
+}
+function renderEdCover() {
+  const box = $('#e-cover'); box.replaceChildren();
+  const name = $('#e-name').value || '?';
+  const hu = hue(name);
+  box.style.background = `linear-gradient(135deg,hsl(${hu} 70% 55%),hsl(${(hu + 50) % 360} 70% 38%))`;
+  box.append(name.replace(/[^A-Za-z0-9 ]/g, '').split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase());
+  const url = pendingPreview || (pendingCover === 'reset' ? null : editing && artUrls.get(editing.id));
+  if (url) { const img = h('img', { src: url, alt: '' }); img.classList.add('in'); box.append(img); }
+}
+function openEditor(game, presetName) {
+  editing = game; pendingCover = undefined; pendingPreview = null; confirmReset = false;
+  $('#e-title').textContent = game ? 'Customize ' + game.name : 'Add a game';
+  $('#e-name').value = game ? game.name : (presetName || '');
+  $('#e-cat').value = game ? game.category : '';
+  $('#e-procs').value = game ? (game.procs || []).join(', ') : '';
+  $('#e-note').value = game ? (game.note || '') : '';
+  edPorts = game ? game.ports.map(([proto, range]) => ({ proto, range })) : [{ proto: 'UDP', range: '' }];
+  $('#e-cats').replaceChildren(...[...new Set(games.map((g) => g.category))].map((c) => h('option', { value: c })));
+  const reset = $('#e-reset');
+  reset.style.display = game && (game.custom || game.modified) ? '' : 'none';
+  reset.textContent = game && game.custom ? 'Delete game' : 'Reset to default';
+  renderEdPorts(); renderEdCover();
+  $('#edlg').showModal();
+  $('#e-name').focus();
+}
+function closeEditor() { if (pendingPreview) URL.revokeObjectURL(pendingPreview); pendingPreview = null; $('#edlg').close(); }
+
+async function toPoster(file) { // centre-crop to 600x900 JPEG so uploads are small and uniform
+  const bmp = await createImageBitmap(file);
+  const W = 600, H = 900, c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const s = Math.max(W / bmp.width, H / bmp.height);
+  c.getContext('2d').drawImage(bmp, (W - bmp.width * s) / 2, (H - bmp.height * s) / 2, bmp.width * s, bmp.height * s);
+  return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('Could not read that image'))), 'image/jpeg', 0.9));
+}
+const blobToB64 = (blob) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(blob); });
+
+$('#e-name').addEventListener('input', renderEdCover);
+$('#e-addport').onclick = () => { edPorts.push({ proto: 'UDP', range: '' }); renderEdPorts(); };
+$('#e-cancel').onclick = closeEditor;
+$('#e-upload').onclick = () => $('#e-file').click();
+$('#e-file').onchange = async (ev) => {
+  const f = ev.target.files[0]; ev.target.value = '';
+  if (!f) return;
+  try {
+    pendingCover = await toPoster(f);
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    pendingPreview = URL.createObjectURL(pendingCover);
+    renderEdCover();
+  } catch (e) { toast(e.message || 'Could not read that image', 'bad'); }
+};
+$('#e-covreset').onclick = () => { pendingCover = 'reset'; if (pendingPreview) URL.revokeObjectURL(pendingPreview); pendingPreview = null; renderEdCover(); };
+$('#e-reset').onclick = async (ev) => {
+  const btn = ev.currentTarget;
+  if (!confirmReset) { confirmReset = true; btn.textContent = 'Click again to confirm'; return; }
+  try {
+    if (editing && isActive(editing)) await api('/api/remove', { gameId: editing.id }); // don't leave orphaned forwards behind
+    await api('/api/game/reset', { id: editing.id });
+    bustArt(editing.id);
+    games = await api('/api/games');
+    toast(editing.custom ? 'Game deleted' : 'Reset to defaults');
+  } catch (e) { toast(e.message, 'bad'); return; }
+  closeEditor(); renderChips(); await loadMappings(); lastRunningKey = ''; pollRunning();
+};
+$('#eform').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const body = {
+    id: editing ? editing.id : undefined,
+    name: $('#e-name').value,
+    category: $('#e-cat').value,
+    ports: edPorts.filter((p) => p.range.trim()).map((p) => [p.proto, p.range.trim()]),
+    procs: $('#e-procs').value.split(',').map((s) => s.trim()).filter(Boolean),
+    note: $('#e-note').value,
+  };
+  const wasActive = !!editing && isActive(editing);
+  const portsChanged = !!editing && JSON.stringify(editing.ports) !== JSON.stringify(body.ports);
+  try {
+    const { id } = await api('/api/game/save', body);
+    if (pendingCover instanceof Blob) await api('/api/game/cover', { id, data: await blobToB64(pendingCover) });
+    else if (pendingCover === 'reset') await api('/api/game/cover-reset', { id });
+    if (pendingCover !== undefined) bustArt(id);
+    if (wasActive && portsChanged) { // keep it "on": close the old ports, open the new ones
+      await api('/api/remove', { name: body.name, entries: editing.ports.map(([proto, range]) => ({ proto, range })) });
+      games = await api('/api/games');
+      await api('/api/forward', { gameId: id });
+    } else games = await api('/api/games');
+    toast(editing ? 'Saved' : `${body.name} added`);
+  } catch (e) { toast(e.message, 'bad'); return; }
+  closeEditor(); renderChips(); await loadMappings(); lastRunningKey = ''; pollRunning();
+});
+
+// ---- settings ----
+async function loadSettings() {
+  try {
+    const s = await api('/api/settings');
+    $('#s-state').textContent = s.hasSgdbKey ? '✓ A key is saved.' : 'No key saved.';
+    $('#s-startup').checked = !!s.startup; $('#s-startup').disabled = !s.canStartup;
+    $('#s-startup-label').textContent = s.platform === 'win32' ? 'Start PortHop with Windows (runs in the tray)' : 'Start PortHop when I log in';
+    $('#s-startup-note').textContent = s.canStartup ? '' : 'Available in the packaged PortHop build only.';
+    $('#s-tray-note').textContent = s.trayActive ? 'Closing this window leaves PortHop running in the system tray. Use the tray icon, or the buttons below, to quit.' : 'Closing this window quits PortHop. Your forwards stay open on the router unless you use "Quit & close forwards".';
+    $('#s-restore').checked = s.restore !== false;
+  } catch { /* ignore */ }
+}
+for (const [id, key] of [['#s-startup', 'startup'], ['#s-restore', 'restore']]) {
+  $(id).onchange = async (e) => {
+    const box = e.currentTarget, want = box.checked;
+    try { await api('/api/settings', { [key]: want }); toast(key === 'startup' ? (want ? 'PortHop will start with Windows' : 'Startup disabled') : (want ? 'Forwards will be restored on launch' : 'Forwards will not be restored')); }
+    catch (err) { box.checked = !want; toast(err.message, 'bad'); }
+  };
+}
+async function quitApp(closeForwards) {
+  try { await api('/api/quit', closeForwards ? { closeForwards: true } : {}); } catch { /* server exiting */ }
+  document.body.innerHTML = '<p style="padding:40px;font:15px system-ui;color:#9aa4b2">PortHop has exited. You can close this window.</p>';
+  setTimeout(() => window.close(), 300);
+}
+$('#s-quit').onclick = () => quitApp(false);
+$('#s-quit-close').onclick = () => quitApp(true);
+$('#gear').onclick = () => { $('#s-key').value = ''; loadSettings(); $('#sdlg').showModal(); };
+$('#s-cancel').onclick = () => $('#sdlg').close();
+$('#sform').addEventListener('submit', async (ev) => {
+  if (ev.submitter?.value !== 'ok') return;
+  const key = $('#s-key').value.trim();
+  if (!key) return;
+  try { await api('/api/settings', { sgdbKey: key }); artUrls.forEach((v, k) => { if (!v) artUrls.delete(k); }); toast('Key saved — reloading covers'); renderGrid(); }
+  catch (e) { toast(e.message, 'bad'); }
+});
+
+// ---- wiring ----
+$('#q').addEventListener('input', (e) => { query = e.target.value.toLowerCase(); renderGrid(); });
+$('#refresh').onclick = loadMappings;
+$('#remove-all').onclick = (e) => removeAll(e.currentTarget);
+$('#rescan').onclick = async () => { st = null; renderStatus(); try { st = await api('/api/rescan', {}); } catch (e) { st = { found: false, error: e.message }; } renderStatus(); loadMappings(); };
+
+(async function init() {
+  games = await api('/api/games');
+  try { const s = await api('/api/settings'); favs = new Set(s.favs || []); } catch { /* defaults */ }
+  renderChips(); renderGrid();
+  try { st = await api('/api/status'); } catch (e) { st = { found: false, error: e.message }; }
+  renderStatus();
+  if (st && st.restore && (st.restore.restored || st.restore.conflicts)) {
+    const r = st.restore, parts = [];
+    if (r.restored) parts.push(`restored ${r.restored} forwarded port${r.restored === 1 ? '' : 's'}`);
+    if (r.conflicts) parts.push(`${r.conflicts} could not be restored (in use by another device)`);
+    toast('PortHop ' + parts.join(', '), r.conflicts ? 'bad' : undefined);
+  }
+  await loadMappings(); pollRunning();
+  setInterval(pollRunning, 5000);
+})();
+// When PortHop quits (tray Exit, or the buttons in Settings) the server tells this window, which then closes itself.
+function showGone() {
+  document.body.innerHTML = '<p style="padding:40px;font:15px system-ui;color:#9aa4b2">PortHop has exited. You can close this window.</p>';
+  setTimeout(() => window.close(), 150);
+}
+new EventSource('/api/events').addEventListener('quit', showGone);
+setInterval(() => fetch('/api/ping').catch(() => {}), 5000); fetch('/api/ping').catch(() => {});
+addEventListener('pagehide', () => navigator.sendBeacon('/api/bye'));
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+[
+  { "name": "Minecraft: Java Edition", "category": "Sandbox", "steam": 0, "procs": ["java@25565", "javaw@25565"], "ports": [["TCP", "25565"]] },
+  { "name": "Minecraft: Bedrock Edition", "category": "Sandbox", "steam": 0, "procs": ["bedrock_server"], "ports": [["UDP", "19132-19133"]] },
+  { "name": "Terraria", "category": "Sandbox", "steam": 105600, "procs": ["TerrariaServer"], "ports": [["TCP", "7777"]] },
+  { "name": "Starbound", "category": "Sandbox", "steam": 211820, "procs": ["starbound_server"], "ports": [["TCP", "21025"]] },
+  { "name": "Stardew Valley", "category": "Co-op", "steam": 413150, "ports": [["UDP", "24642"]] },
+  { "name": "Don't Starve Together", "category": "Co-op", "steam": 322330, "procs": ["dontstarve_dedicated_server_nullrenderer_x64", "dontstarve_dedicated_server_nullrenderer"], "ports": [["UDP", "10999"]] },
+  { "name": "Among Us", "category": "Co-op", "steam": 945360, "ports": [["UDP", "22023"]] },
+  { "name": "Factorio", "category": "Co-op", "steam": 427520, "procs": ["factorio@34197"], "ports": [["UDP", "34197"]] },
+  { "name": "Satisfactory", "category": "Co-op", "steam": 526870, "procs": ["FactoryServer", "FactoryServer-Win64-Shipping-Cmd", "UnrealServer-Linux-Shipping"], "ports": [["TCP/UDP", "7777"], ["TCP", "8888"]] },
+
+  { "name": "Valheim", "category": "Survival", "steam": 892970, "procs": ["valheim_server"], "ports": [["UDP", "2456-2458"]] },
+  { "name": "Palworld", "category": "Survival", "steam": 1623730, "procs": ["PalServer", "PalServer-Win64-Shipping-Cmd", "PalServer-Win64-Shipping"], "ports": [["UDP", "8211"]] },
+  { "name": "Project Zomboid", "category": "Survival", "steam": 108600, "procs": ["java@16261", "ProjectZomboid64@16261"], "ports": [["UDP", "16261-16262"]] },
+  { "name": "Rust", "category": "Survival", "steam": 252490, "procs": ["RustDedicated"], "ports": [["UDP", "28015"]], "note": "RCON (28016) intentionally not opened." },
+  { "name": "ARK: Survival Evolved", "category": "Survival", "steam": 346110, "procs": ["ShooterGameServer"], "ports": [["UDP", "7777-7778"], ["UDP", "27015"]] },
+  { "name": "ARK: Survival Ascended", "category": "Survival", "steam": 2399830, "procs": ["ArkAscendedServer"], "ports": [["UDP", "7777"], ["UDP", "27015"]] },
+  { "name": "7 Days to Die", "category": "Survival", "steam": 251570, "procs": ["7DaysToDieServer"], "ports": [["TCP", "26900"], ["UDP", "26900-26903"]] },
+  { "name": "Enshrouded", "category": "Survival", "steam": 1203620, "procs": ["enshrouded_server"], "ports": [["UDP", "15636-15637"]] },
+  { "name": "V Rising", "category": "Survival", "steam": 1604030, "procs": ["VRisingServer"], "ports": [["UDP", "9876-9877"]] },
+  { "name": "Sons of the Forest", "category": "Survival", "steam": 1326470, "procs": ["SonsOfTheForestDS"], "ports": [["UDP", "8766"], ["UDP", "27016"], ["UDP", "9700"]] },
+  { "name": "Conan Exiles", "category": "Survival", "steam": 440900, "procs": ["ConanSandboxServer", "ConanSandboxServer-Win64-Shipping"], "ports": [["UDP", "7777-7778"], ["UDP", "27015"]] },
+  { "name": "Unturned", "category": "Survival", "steam": 304930, "procs": ["Unturned@27015"], "ports": [["UDP", "27015-27016"]] },
+  { "name": "Space Engineers", "category": "Survival", "steam": 244850, "procs": ["SpaceEngineersDedicated"], "ports": [["UDP", "27016"]] },
+
+  { "name": "Counter-Strike 2", "category": "Shooter", "steam": 730, "procs": ["cs2@27015"], "ports": [["TCP/UDP", "27015"]] },
+  { "name": "Team Fortress 2", "category": "Shooter", "steam": 440, "ports": [["TCP/UDP", "27015"]] },
+  { "name": "Left 4 Dead 2", "category": "Shooter", "steam": 550, "ports": [["TCP/UDP", "27015"]] },
+  { "name": "Garry's Mod", "category": "Shooter", "steam": 4000, "ports": [["TCP/UDP", "27015"]] },
+  { "name": "Killing Floor 2", "category": "Shooter", "steam": 232090, "procs": ["KFServer"], "ports": [["UDP", "7777"], ["UDP", "27015"], ["UDP", "20560"]] },
+
+  { "name": "Steam Remote Play", "category": "Platform", "steam": 0, "ports": [["UDP", "27031-27036"], ["TCP", "27036-27037"]] },
+  { "name": "Xbox Live", "category": "Platform", "steam": 0, "ports": [["UDP", "88"], ["UDP", "500"], ["UDP", "3074"], ["UDP", "3544"], ["UDP", "4500"], ["TCP", "3074"]] },
+  { "name": "PlayStation Network", "category": "Platform", "steam": 0, "ports": [["TCP", "3478-3480"], ["UDP", "3478-3479"]] }
+]
