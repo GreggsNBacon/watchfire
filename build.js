@@ -5,7 +5,9 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const root = __dirname;
-const dist = path.join(root, 'dist');
+// Optional --out <dir>: build somewhere else (e.g. while dist/PortHop.exe is running and locked).
+const outIdx = process.argv.indexOf('--out');
+const dist = outIdx > 0 && process.argv[outIdx + 1] ? path.resolve(process.argv[outIdx + 1]) : path.join(root, 'dist');
 fs.mkdirSync(dist, { recursive: true });
 
 // 1. Inline upnp.js into server.js (SEA main scripts can't require() local files).
@@ -20,11 +22,11 @@ fs.writeFileSync(path.join(dist, 'bundle.js'), server);
 
 const outName = process.platform === 'win32' ? 'PortHop.exe' : 'porthop'; // build on the OS you are targeting
 // 2. SEA config with embedded assets (UI, game list, and any pre-downloaded cover art in ./art).
-const assets = { 'games.json': '../games.json', 'public/index.html': '../public/index.html', 'tray.ps1': '../tray.ps1' };
+const assets = { 'games.json': path.join(root, 'games.json'), 'public/index.html': path.join(root, 'public', 'index.html'), 'tray.ps1': path.join(root, 'tray.ps1') };
 const artDir = path.join(root, 'art');
 let artCount = 0;
 if (fs.existsSync(artDir)) {
-  for (const f of fs.readdirSync(artDir)) if (/^[a-z0-9-]+\.img$/.test(f)) { assets['art/' + f] = '../art/' + f; artCount++; }
+  for (const f of fs.readdirSync(artDir)) if (/^[a-z0-9-]+\.img$/.test(f)) { assets['art/' + f] = path.join(artDir, f); artCount++; }
 }
 console.log(`Embedding ${artCount} cover image(s)`);
 fs.writeFileSync(path.join(dist, 'sea-config.json'), JSON.stringify({

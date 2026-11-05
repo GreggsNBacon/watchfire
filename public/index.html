@@ -343,11 +343,16 @@ async function resolveArt(id, fetchBody) {
   } catch { artUrls.set(id, false); }
   artPending.delete(id); artDone(); paintCover(id);
 }
-function coverEl(id, name, fetchBody) {
+// The "add your own" card is rebuilt on every keystroke, so its cover lookup waits until typing pauses;
+// otherwise each half-typed name ("the lor", "the lord o"…) would be searched for and cached.
+let typedArtTimer = 0;
+function coverEl(id, name, fetchBody, { lazy = false } = {}) {
   const hu = hue(name);
   const box = h('div', { class: 'cover', 'data-id': id, style: `background:linear-gradient(135deg,hsl(${hu} 70% 55%),hsl(${(hu + 50) % 360} 70% 38%))` },
     name.replace(/[^A-Za-z0-9 ]/g, '').split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase());
-  if (artUrls.get(id)) paintCover(id); else resolveArt(id, fetchBody);
+  if (artUrls.get(id)) paintCover(id);
+  else if (lazy) { clearTimeout(typedArtTimer); typedArtTimer = setTimeout(() => resolveArt(id, fetchBody), 750); }
+  else resolveArt(id, fetchBody);
   queueMicrotask(() => paintCover(id));
   return box;
 }
@@ -370,7 +375,7 @@ function renderGrid() {
     const raw = $('#q').value.trim();
     if (raw.length >= 2) {
       grid.append(h('div', { class: 'grid' }, h('div', { class: 'card addnew', onclick: () => openCustom(raw) },
-        h('div', { class: 'top' }, coverEl('c-' + slug(raw), raw, { name: raw }),
+        h('div', { class: 'top' }, coverEl('c-' + slug(raw), raw, { name: raw }, { lazy: true }),
           h('div', {}, h('div', { class: 'name' }, raw), h('div', { class: 'cat' }, 'Not in the list — click to add your own ports'))),
         h('div', { class: 'note' }, 'Cover art will be looked up automatically.'))));
     } else grid.append(h('div', { class: 'empty' }, 'No games match.'));

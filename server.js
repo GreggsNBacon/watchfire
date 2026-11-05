@@ -24,6 +24,7 @@ let artChain = Promise.resolve();
 const enqueueArt = (fn) => { const p = artChain.then(fn); artChain = p.catch(() => {}); return p; };
 
 const TAG = 'PortHop:';
+const VERSION = '1.1.0';
 const MAX_PORTS_PER_REQUEST = 200;
 let httpPort = 0;
 
@@ -314,7 +315,29 @@ function trayData() {
     }
   }
   const otherPorts = [...ours].filter((k) => !covered.has(k)).length;
-  return { quit: shuttingDown, router: gw ? gw.name : '', externalIp: ip, forwards, otherPorts };
+  // The menu's checkboxes ride along so the tray needs one cheap request, not two.
+  return {
+    quit: shuttingDown, router: gw ? gw.name : '', externalIp: ip, forwards, otherPorts,
+    canStartup: !!sea && !headless, startup: startupCache === true, restore: store.loadPrefs().restore,
+  };
+}
+
+// "Start with Windows" is read from the registry by running reg.exe, which is slow; remember the answer.
+let startupCache = null;
+async function startupEnabled() {
+  if (!sea) return false;
+  if (startupCache === null) startupCache = await autostart.isEnabled(process.execPath);
+  return startupCache;
+}
+
+// ---------- companion apps (Hostbay) ----------
+// What's forwarded to this PC right now, from the cached snapshot: answers instantly, never waits on the router.
+// The snapshot refreshes every minute and after every forward/remove.
+function forwardedPayload() {
+  const ports = snapshot.mappings
+    .filter((m) => m.mine)
+    .map((m) => ({ port: m.port, protocol: m.protocol, enabled: m.enabled !== false, ours: !!m.ours, name: String(m.description || '').replace(/^PortHop:\s*/, '') }));
+  return { router: gw ? gw.name : '', routerFound: !!gw, localIp, externalIp: snapshot.externalIp || '', ports, error: gw ? null : lastError };
 }
 
 // ---------- tray icon (PowerShell helper, hidden) + lifecycle ----------
@@ -341,7 +364,8 @@ async function quitApp() {
   for (const c of eventClients) { try { c.write('event: quit\ndata: 1\n\n'); } catch { /* window already gone */ } }
   const tp = trayProc;
   if (tp) await Promise.race([new Promise((r) => tp.once('exit', r)), sleep(3500)]);
-  if (tp) { try { tp.kill(); } catch { /* already gone */ } } // never leave an orphaned tray icon behind  store.clearInstance(process.pid);
+  if (tp) { try { tp.kill(); } catch { /* already gone */ } } // never leave an orphaned tray icon behind
+  store.clearInstance(process.pid);
   process.exit(0);
 }
 
@@ -352,7 +376,7 @@ async function settingsPayload() {
     favs: store.loadPrefs().favs,
     collapsed: store.loadPrefs().collapsed,
     canStartup: !!sea && !headless, // only the packaged exe/binary has a stable path to register
-    startup: sea ? await autostart.isEnabled(process.execPath) : false,
+    startup: await startupEnabled(),
     platform: process.platform,
     trayActive,
   };
@@ -426,7 +450,9 @@ const server = http.createServer(async (req, res) => {
       if (!trayActive) byeTimer = setTimeout(() => process.exit(0), 4000); // cancelled by a ping if it was only a reload
       return send(res, 200, { ok: true });
     }
-    if (req.method === 'GET' && url.pathname === '/api/hello') return send(res, 200, { app: 'porthop' }); // second launches use this to detect us
+    // Second launches and companion apps (Hostbay) use this to detect us. api: bumped when the companion API changes.
+    if (req.method === 'GET' && url.pathname === '/api/hello') return send(res, 200, { app: 'porthop', version: VERSION, api: 1 });
+    if (req.method === 'GET' && url.pathname === '/api/forwarded') return send(res, 200, forwardedPayload());
     if (req.method === 'GET' && url.pathname === '/api/tray') return send(res, 200, trayData());
     if (req.method === 'POST' && url.pathname === '/api/tray/ready') { trayActive = true; return send(res, 200, { ok: true }); }
     if (req.method === 'POST' && url.pathname === '/api/show') {
@@ -501,6 +527,7 @@ const server = http.createServer(async (req, res) => {
       if ('startup' in body) {
         if (!sea) return send(res, 400, { error: 'Starting with the system is only available in the packaged PortHop build.' });
         await autostart.setEnabled(!!body.startup, process.execPath);
+        startupCache = null; // re-read what actually got written
       }
       return send(res, 200, await settingsPayload());
     }
@@ -635,6 +662,7 @@ function httpLocal(port, method, pathName) {
     if (!sea || !IS_WIN || headless) console.log(`PortHop running at ${url}${headless ? '  (no display detected: open this in a browser, e.g. through an SSH tunnel)' : ''}`);
 
     bootstrap().catch(() => {});
+    startupEnabled().catch(() => {}); // warm the cache so the tray's first menu is right
     setInterval(() => refreshSnapshot().catch(() => {}), 60000);
 
     if (!process.argv.includes('--no-tray')) startTray();

@@ -1,22 +1,37 @@
 param([int]$Port)
 # PortHop system-tray helper. Started (hidden) by PortHop itself; talks only to http://127.0.0.1:$Port.
+#
+# Kept snappy on purpose: nothing here ever waits on the network on the UI thread.
+#  - A background request keeps $script:data current; the menu is built instantly from that.
+#  - Clicks fire their request and return straight away.
+#  - The HttpClient skips proxy auto-detection (WPAD), which can add seconds to every local call.
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-Add-Type -Namespace Win -Name Native -MemberDefinition '[DllImport("user32.dll")] public static extern bool DestroyIcon(IntPtr h);'
+Add-Type -AssemblyName System.Net.Http
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $base = "http://127.0.0.1:$Port"
 $tick = [string][char]0x2713
 
-function Api([string]$path, [string]$method = 'GET', $body = $null) {
-  try {
-    if ($method -eq 'GET') { return Invoke-RestMethod -Uri ($base + $path) -TimeoutSec 5 }
-    $json = '{}'
-    if ($body) { $json = $body | ConvertTo-Json -Compress }
-    return Invoke-RestMethod -Uri ($base + $path) -Method Post -Headers @{ 'X-PortHop' = '1' } -ContentType 'application/json' -Body $json -TimeoutSec 90
-  } catch { return $null }
+$handler = New-Object System.Net.Http.HttpClientHandler
+$handler.UseProxy = $false
+$http = New-Object System.Net.Http.HttpClient($handler)
+$http.Timeout = [TimeSpan]::FromSeconds(120) # long enough for "close all forwards" on a slow router
+$poll = New-Object System.Net.Http.HttpClient($handler, $false)
+$poll.Timeout = [TimeSpan]::FromSeconds(4) # background reads: give up quickly
+
+function Send-Post([string]$path, $body = $null) {
+  # Fire and forget: the result shows up in the next background refresh.
+  $json = '{}'
+  if ($body) { $json = $body | ConvertTo-Json -Compress }
+  $content = New-Object System.Net.Http.StringContent($json, [System.Text.Encoding]::UTF8, 'application/json')
+  $req = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Post, ($base + $path))
+  $req.Content = $content
+  [void]$req.Headers.TryAddWithoutValidation('X-PortHop', '1')
+  try { [void]$http.SendAsync($req) } catch { }
 }
 
+# Both icons are drawn once; switching between them is then free.
 function New-PortIcon([bool]$active) {
   $bmp = New-Object System.Drawing.Bitmap 32, 32
   $g = [System.Drawing.Graphics]::FromImage($bmp)
@@ -40,17 +55,20 @@ function New-PortIcon([bool]$active) {
     $g.FillEllipse($green, 19, 19, 11, 11)
   }
   $g.Dispose()
-  $h = $bmp.GetHicon()
-  $icon = [System.Drawing.Icon]::FromHandle($h).Clone()
-  [void][Win.Native]::DestroyIcon($h)
+  $icon = [System.Drawing.Icon]::FromHandle($bmp.GetHicon()) # two handles for the life of the tray: nothing to clean up
   $bmp.Dispose()
   return $icon
 }
+$iconIdle = New-PortIcon $false
+$iconActive = New-PortIcon $true
 
-$script:activeState = $false
+$script:data = $null       # last /api/tray answer
+$script:pending = $null    # in-flight request
 $script:fails = 0
+$script:activeState = $false
+
 $notify = New-Object System.Windows.Forms.NotifyIcon
-$notify.Icon = New-PortIcon $false
+$notify.Icon = $iconIdle
 $notify.Text = 'PortHop'
 $notify.Visible = $true
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
@@ -69,12 +87,11 @@ function Add-Sep { [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolSt
 
 function Build-Menu {
   $menu.Items.Clear()
-  $d = Api '/api/tray'
-  $s = Api '/api/settings'
-  [void](Add-Item 'Open PortHop' { [void](Api '/api/show' 'POST') } $true $null $true)
+  $d = $script:data
+  [void](Add-Item 'Open PortHop' { Send-Post '/api/show' } $true $null $true)
   Add-Sep
   if ($null -eq $d) {
-    [void](Add-Item 'PortHop is not responding' $null $false)
+    [void](Add-Item 'Connecting to PortHop...' $null $false)
   } else {
     $title = 'Forwarded now'
     if ($d.router) { $title = 'Forwarded now - ' + $d.router }
@@ -99,24 +116,31 @@ function Build-Menu {
   }
   Add-Sep
   $canStartup = $false; $startup = $false; $restore = $true
-  if ($s) { $canStartup = [bool]$s.canStartup; $startup = [bool]$s.startup; $restore = [bool]$s.restore }
+  if ($d) { $canStartup = [bool]$d.canStartup; $startup = [bool]$d.startup; $restore = [bool]$d.restore }
   [void](Add-Item 'Start with Windows' {
       param($sender, $e)
-      [void](Api '/api/settings' 'POST' @{ startup = (-not $sender.Checked) })
+      $on = -not $sender.Checked
+      if ($script:data) { $script:data.startup = $on } # show the change right away
+      Send-Post '/api/settings' @{ startup = $on }
     } $canStartup $startup)
   [void](Add-Item 'Restore forwards on launch' {
       param($sender, $e)
-      [void](Api '/api/settings' 'POST' @{ restore = (-not $sender.Checked) })
+      $on = -not $sender.Checked
+      if ($script:data) { $script:data.restore = $on }
+      Send-Post '/api/settings' @{ restore = $on }
     } $true $restore)
   Add-Sep
-  [void](Add-Item 'Exit' { [void](Api '/api/quit' 'POST') })
-  [void](Add-Item 'Exit and close all forwards' { [void](Api '/api/quit' 'POST' @{ closeForwards = $true }) })
+  [void](Add-Item 'Exit' { Send-Post '/api/quit' })
+  [void](Add-Item 'Exit and close all forwards' {
+      $notify.Text = 'PortHop - closing forwards...'
+      Send-Post '/api/quit' @{ closeForwards = $true }
+    })
 }
 
 $menu.Add_Opening({ param($sender, $e) Build-Menu })
 $notify.Add_MouseClick({
     param($sender, $e)
-    if ($e.Button -eq [System.Windows.Forms.MouseButtons]::Left) { [void](Api '/api/show' 'POST') }
+    if ($e.Button -eq [System.Windows.Forms.MouseButtons]::Left) { Send-Post '/api/show' }
   })
 
 function Stop-Tray {
@@ -126,27 +150,42 @@ function Stop-Tray {
   [System.Windows.Forms.Application]::Exit()
 }
 
+function Apply-Data($d) {
+  $n = @($d.forwards).Count
+  $txt = 'PortHop - nothing forwarded'
+  if ($n -eq 1) { $txt = 'PortHop - 1 game forwarded' } elseif ($n -gt 1) { $txt = "PortHop - $n games forwarded" }
+  if ($notify.Text -ne $txt -and $notify.Text -ne 'PortHop - closing forwards...') { $notify.Text = $txt }
+  $isActive = ($n -gt 0) -or ($d.otherPorts -gt 0)
+  if ($isActive -ne $script:activeState) {
+    $script:activeState = $isActive
+    if ($isActive) { $notify.Icon = $iconActive } else { $notify.Icon = $iconIdle }
+  }
+}
+
+# Every second: collect the previous background request (if it finished) and start the next one.
 $timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = 2000
+$timer.Interval = 1000
 $timer.Add_Tick({
-    $d = Api '/api/tray'
-    if ($null -eq $d) { $script:fails++ } else { $script:fails = 0 }
-    if ($script:fails -ge 3 -or ($d -and $d.quit)) { Stop-Tray; return }
-    if ($d) {
-      $n = @($d.forwards).Count
-      $txt = 'PortHop - nothing forwarded'
-      if ($n -eq 1) { $txt = 'PortHop - 1 game forwarded' } elseif ($n -gt 1) { $txt = "PortHop - $n games forwarded" }
-      if ($notify.Text -ne $txt) { $notify.Text = $txt }
-      $isActive = ($n -gt 0) -or ($d.otherPorts -gt 0)
-      if ($isActive -ne $script:activeState) {
-        $script:activeState = $isActive
-        $old = $notify.Icon
-        $notify.Icon = New-PortIcon $isActive
-        if ($old) { $old.Dispose() }
+    $p = $script:pending
+    if ($p -and -not $p.IsCompleted) { return } # still waiting; never block
+    if ($p) {
+      $script:pending = $null
+      if ($p.Status -eq [System.Threading.Tasks.TaskStatus]::RanToCompletion) {
+        $script:fails = 0
+        try { $script:data = $p.Result | ConvertFrom-Json } catch { }
+        if ($script:data) {
+          if ($script:data.quit) { Stop-Tray; return }
+          Apply-Data $script:data
+        }
+      } else {
+        $script:fails++
+        if ($script:fails -ge 6) { Stop-Tray; return } # PortHop has gone away
       }
     }
+    try { $script:pending = $poll.GetStringAsync($base + '/api/tray') } catch { $script:fails++ }
   })
 $timer.Start()
 
-[void](Api '/api/tray/ready' 'POST')
+Send-Post '/api/tray/ready'
+$script:pending = $poll.GetStringAsync($base + '/api/tray') # first data as soon as possible
 [System.Windows.Forms.Application]::Run((New-Object System.Windows.Forms.ApplicationContext))
