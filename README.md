@@ -1,4 +1,6 @@
-# Watchfire
+<p align="center"><img src="assets/watchfire.svg" width="128" alt="Watchfire logo: a gold flame sending out a signal"></p>
+
+<h1 align="center">Watchfire</h1>
 
 Open ports on your router for game servers, so friends outside your home can join, without logging in to your router.
 
