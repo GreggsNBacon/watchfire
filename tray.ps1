@@ -1,5 +1,5 @@
-param([int]$Port)
-# PortHop system-tray helper. Started (hidden) by PortHop itself; talks only to http://127.0.0.1:$Port.
+param([int]$Port, [string]$IconPath)
+# Watchfire system-tray helper. Started (hidden) by Watchfire itself; talks only to http://127.0.0.1:$Port.
 #
 # Kept snappy on purpose: nothing here ever waits on the network on the UI thread.
 #  - A background request keeps $script:data current; the menu is built instantly from that.
@@ -27,27 +27,22 @@ function Send-Post([string]$path, $body = $null) {
   $content = New-Object System.Net.Http.StringContent($json, [System.Text.Encoding]::UTF8, 'application/json')
   $req = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Post, ($base + $path))
   $req.Content = $content
-  [void]$req.Headers.TryAddWithoutValidation('X-PortHop', '1')
+  [void]$req.Headers.TryAddWithoutValidation('X-Watchfire', '1')
   try { [void]$http.SendAsync($req) } catch { }
 }
 
 # Both icons are drawn once; switching between them is then free.
+#   The logo comes from watchfire.ico (passed in by Watchfire); a plain gold dot stands in if it can't be read.
 function New-PortIcon([bool]$active) {
   $bmp = New-Object System.Drawing.Bitmap 32, 32
   $g = [System.Drawing.Graphics]::FromImage($bmp)
   $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-  $rect = New-Object System.Drawing.Rectangle 1, 1, 30, 30
-  $c1 = [System.Drawing.Color]::FromArgb(56, 189, 248)
-  $c2 = [System.Drawing.Color]::FromArgb(139, 92, 246)
-  $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush($rect, $c1, $c2, 45.0)
-  $g.FillEllipse($brush, $rect)
-  $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::White, 3.2)
-  $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-  $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-  $pen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
-  $g.DrawLine($pen, 8, 16, 23, 16)
-  $pts = [System.Drawing.Point[]]@((New-Object System.Drawing.Point 17, 9), (New-Object System.Drawing.Point 24, 16), (New-Object System.Drawing.Point 17, 23))
-  $g.DrawLines($pen, $pts)
+  $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+  $drawn = $false
+  if ($IconPath -and (Test-Path $IconPath)) {
+    try { $src = New-Object System.Drawing.Icon($IconPath, 32, 32); $g.DrawIcon($src, (New-Object System.Drawing.Rectangle 0, 0, 32, 32)); $src.Dispose(); $drawn = $true } catch { }
+  }
+  if (-not $drawn) { $g.FillEllipse((New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 178, 58))), 4, 4, 24, 24) }
   if ($active) {
     $dark = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(20, 24, 36))
     $green = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(52, 211, 153))
@@ -69,7 +64,7 @@ $script:activeState = $false
 
 $notify = New-Object System.Windows.Forms.NotifyIcon
 $notify.Icon = $iconIdle
-$notify.Text = 'PortHop'
+$notify.Text = 'Watchfire'
 $notify.Visible = $true
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
 $notify.ContextMenuStrip = $menu
@@ -88,10 +83,10 @@ function Add-Sep { [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolSt
 function Build-Menu {
   $menu.Items.Clear()
   $d = $script:data
-  [void](Add-Item 'Open PortHop' { Send-Post '/api/show' } $true $null $true)
+  [void](Add-Item 'Open Watchfire' { Send-Post '/api/show' } $true $null $true)
   Add-Sep
   if ($null -eq $d) {
-    [void](Add-Item 'Connecting to PortHop...' $null $false)
+    [void](Add-Item 'Connecting to Watchfire...' $null $false)
   } else {
     $title = 'Forwarded now'
     if ($d.router) { $title = 'Forwarded now - ' + $d.router }
@@ -105,7 +100,7 @@ function Build-Menu {
           param($sender, $e)
           if ($sender.Tag) {
             [System.Windows.Forms.Clipboard]::SetText([string]$sender.Tag)
-            $notify.ShowBalloonTip(1500, 'PortHop', ('Copied ' + $sender.Tag), [System.Windows.Forms.ToolTipIcon]::Info)
+            $notify.ShowBalloonTip(1500, 'Watchfire', ('Copied ' + $sender.Tag), [System.Windows.Forms.ToolTipIcon]::Info)
           }
         } ([bool]$f.address)
         $it.Tag = [string]$f.address
@@ -132,7 +127,7 @@ function Build-Menu {
   Add-Sep
   [void](Add-Item 'Exit' { Send-Post '/api/quit' })
   [void](Add-Item 'Exit and close all forwards' {
-      $notify.Text = 'PortHop - closing forwards...'
+      $notify.Text = 'Watchfire - closing forwards...'
       Send-Post '/api/quit' @{ closeForwards = $true }
     })
 }
@@ -152,9 +147,9 @@ function Stop-Tray {
 
 function Apply-Data($d) {
   $n = @($d.forwards).Count
-  $txt = 'PortHop - nothing forwarded'
-  if ($n -eq 1) { $txt = 'PortHop - 1 game forwarded' } elseif ($n -gt 1) { $txt = "PortHop - $n games forwarded" }
-  if ($notify.Text -ne $txt -and $notify.Text -ne 'PortHop - closing forwards...') { $notify.Text = $txt }
+  $txt = 'Watchfire - nothing forwarded'
+  if ($n -eq 1) { $txt = 'Watchfire - 1 game forwarded' } elseif ($n -gt 1) { $txt = "Watchfire - $n games forwarded" }
+  if ($notify.Text -ne $txt -and $notify.Text -ne 'Watchfire - closing forwards...') { $notify.Text = $txt }
   $isActive = ($n -gt 0) -or ($d.otherPorts -gt 0)
   if ($isActive -ne $script:activeState) {
     $script:activeState = $isActive
@@ -179,7 +174,7 @@ $timer.Add_Tick({
         }
       } else {
         $script:fails++
-        if ($script:fails -ge 6) { Stop-Tray; return } # PortHop has gone away
+        if ($script:fails -ge 6) { Stop-Tray; return } # Watchfire has gone away
       }
     }
     try { $script:pending = $poll.GetStringAsync($base + '/api/tray') } catch { $script:fails++ }

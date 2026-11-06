@@ -1,0 +1,12 @@
+{
+  "name": "watchfire",
+  "private": true,
+  "description": "Open ports on your router for game servers (UPnP).",
+  "scripts": {
+    "start": "node server.js",
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "resedit": "^2.0.0"
+  }
+}

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Watchfire: a gold flame sending out a signal. -->
+  <defs>
+    <linearGradient id="wf-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset=".6" stop-color="#ffb23a"/><stop offset="1" stop-color="#f27a18"/></linearGradient>
+    <mask id="wf-m" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <path fill="#fff" d="M32 2C39 12 53 21 53 39C53 52 44 62 32 62C20 62 11 52 11 39C11 30 16 24 20 17C21.5 24 24.5 27.5 27.5 28.5C25.5 20 26.5 10 32 2Z"/>
+      <g fill="none" stroke="#000" stroke-width="3.6" stroke-linecap="round"><path d="M26.3 45.7A8 8 0 0 1 37.7 45.7"/><path d="M21.2 40.6A15.2 15.2 0 0 1 42.8 40.6"/></g>
+      <circle cx="32" cy="51.5" r="3.4" fill="#000"/>
+    </mask>
+  </defs>
+  <rect width="64" height="64" fill="url(#wf-g)" mask="url(#wf-m)"/>
+</svg>

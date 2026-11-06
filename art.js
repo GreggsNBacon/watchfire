@@ -9,7 +9,7 @@ const ALLOWED_HOSTS = ['steamgriddb.com', 'steampowered.com', 'steamstatic.com']
 const MAX_BYTES = 4 * 1024 * 1024;
 const hostAllowed = (h) => ALLOWED_HOSTS.some((d) => h === d || h.endsWith('.' + d));
 
-const dataDir = path.join(process.env.LOCALAPPDATA || process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'PortHop');
+const dataDir = path.join(process.env.LOCALAPPDATA || process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'Watchfire');
 const cacheDir = path.join(dataDir, 'art');
 const settingsFile = path.join(dataDir, 'settings.json');
 const customDir = path.join(dataDir, 'covers'); // user-uploaded covers always win
@@ -27,7 +27,7 @@ function setSgdbKey(key) {
   fs.writeFileSync(settingsFile, JSON.stringify(s, null, 2));
 }
 function getSgdbKey() {
-  const k = process.env.PORTHOP_SGDB_KEY || readSettings().sgdbKey || '';
+  const k = (process.env.WATCHFIRE_SGDB_KEY || process.env.PORTHOP_SGDB_KEY) || readSettings().sgdbKey || '';
   return /^[A-Za-z0-9]{16,64}$/.test(k) ? k : '';
 }
 
@@ -36,7 +36,7 @@ function get(urlStr, { headers = {}, redirects = 3 } = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(urlStr);
     if (u.protocol !== 'https:' || !hostAllowed(u.hostname)) return reject(new Error('Blocked host ' + u.hostname));
-    const h = { 'User-Agent': 'PortHop/1.0', ...headers };
+    const h = { 'User-Agent': 'Watchfire/1.0', ...headers };
     if (!(u.hostname === 'steamgriddb.com' || u.hostname.endsWith('.steamgriddb.com'))) delete h.Authorization; // never leak the key
     const req = https.get(u, { headers: h, timeout: 10000 }, (res) => {
       if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location && redirects > 0) {
