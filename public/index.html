@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0a0c12">
 <title>PortHop</title>
 <style>
   :root {
@@ -239,6 +240,7 @@
     <div class="help" id="s-startup-note"></div>
     <label class="chk"><input type="checkbox" id="s-restore"> Restore my forwards when PortHop starts</label>
     <div class="help" id="s-tray-note"></div>
+    <div class="help" id="s-version"></div>
     <div class="row"><button type="button" class="ghost rm" id="s-quit">Quit PortHop</button><button type="button" class="ghost rm" id="s-quit-close">Quit &amp; close forwards</button><span style="flex:1"></span><button type="button" class="ghost" id="s-cancel">Close</button><button class="primary" value="ok">Save</button></div>
   </form>
 </dialog>
@@ -628,6 +630,7 @@ async function loadSettings() {
     $('#s-startup-note').textContent = s.canStartup ? '' : 'Available in the packaged PortHop build only.';
     $('#s-tray-note').textContent = s.trayActive ? 'Closing this window leaves PortHop running in the system tray. Use the tray icon, or the buttons below, to quit.' : 'Closing this window quits PortHop. Your forwards stay open on the router unless you use "Quit & close forwards".';
     $('#s-restore').checked = s.restore !== false;
+    $('#s-version').textContent = s.version ? `PortHop ${s.version}` : '';
   } catch { /* ignore */ }
 }
 for (const [id, key] of [['#s-startup', 'startup'], ['#s-restore', 'restore']]) {

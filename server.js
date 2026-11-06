@@ -24,7 +24,7 @@ let artChain = Promise.resolve();
 const enqueueArt = (fn) => { const p = artChain.then(fn); artChain = p.catch(() => {}); return p; };
 
 const TAG = 'PortHop:';
-const VERSION = '1.1.0';
+const VERSION = '1.2.0-dev'; // build.js stamps the real version (1.2.<commit count>) into the packaged exe
 const MAX_PORTS_PER_REQUEST = 200;
 let httpPort = 0;
 
@@ -373,6 +373,7 @@ async function settingsPayload() {
   return {
     hasSgdbKey: !!art.getSgdbKey(),
     restore: store.loadPrefs().restore,
+    version: VERSION,
     favs: store.loadPrefs().favs,
     collapsed: store.loadPrefs().collapsed,
     canStartup: !!sea && !headless, // only the packaged exe/binary has a stable path to register
@@ -455,8 +456,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/forwarded') return send(res, 200, forwardedPayload());
     if (req.method === 'GET' && url.pathname === '/api/tray') return send(res, 200, trayData());
     if (req.method === 'POST' && url.pathname === '/api/tray/ready') { trayActive = true; return send(res, 200, { ok: true }); }
+    if (req.method === 'GET' && url.pathname === '/api/window') return send(res, 200, { show: windowShowSeq }); // polled by PortHop's own window
     if (req.method === 'POST' && url.pathname === '/api/show') {
-      if (Date.now() - lastPing > 10000) openWindow(`http://127.0.0.1:${httpPort}/`); // if a window is already up, leave it alone
+      if (windowProc) windowShowSeq++; // PortHop's own window is open: bring it to the front
+      else if (Date.now() - lastPing > 10000) openWindow(`http://127.0.0.1:${httpPort}/`); // a browser window is already up: leave it alone
       return send(res, 200, { ok: true });
     }
     if (req.method === 'POST' && url.pathname === '/api/quit') {
@@ -605,7 +608,64 @@ function launch(file, args) {
   try { const c = spawn(file, args, { detached: true, stdio: 'ignore' }); c.on('error', () => {}); c.unref(); } catch { /* ignore */ }
 }
 
+// ---------- PortHop's own window (Windows) ----------
+// window.ps1 shows the UI in WebView2 with a dark title bar and PortHop's icon. Its files are unpacked next to the
+// app's data; if WebView2 isn't available it exits with code 3 and PortHop falls back to an Edge/Chrome app window.
+let windowProc = null;
+let windowShowSeq = 0;
+const WINDOW_FILES = ['vendor/webview2/Microsoft.Web.WebView2.Core.dll', 'vendor/webview2/Microsoft.Web.WebView2.WinForms.dll',
+  'vendor/webview2/WebView2Loader.dll', 'assets/porthop.ico', 'window.ps1'];
+
+function prepareWindowFiles() {
+  const dir = path.join(store.dataDir, 'window');
+  fs.mkdirSync(dir, { recursive: true });
+  for (const rel of WINDOW_FILES) {
+    let data = readAsset(rel);
+    if (rel.endsWith('.ps1')) data = Buffer.concat([Buffer.from('\ufeff'), data]); // BOM so Windows PowerShell reads it as UTF-8
+    const target = path.join(dir, path.basename(rel));
+    let same = false;
+    try { same = fs.readFileSync(target).equals(data); } catch { /* not there yet */ }
+    if (!same) {
+      try { fs.writeFileSync(target, data); } catch (e) { if (!fs.existsSync(target)) throw e; /* in use by an open window: keep it */ }
+    }
+  }
+  return dir;
+}
+
+function openNativeWindow(url) {
+  if (process.env.PORTHOP_BROWSER_WINDOW) return false; // escape hatch: always use the browser's app window
+  let dir;
+  try { dir = prepareWindowFiles(); } catch { return false; }
+  const ps = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  let proc;
+  try {
+    proc = spawn(ps, ['-NoProfile', '-NonInteractive', '-STA', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', path.join(dir, 'window.ps1'),
+      '-Port', String(httpPort), '-Dir', dir, '-DataDir', path.join(store.dataDir, 'WebView2')], { windowsHide: true, stdio: 'ignore' });
+  } catch { return false; }
+  windowProc = proc;
+  const started = Date.now();
+  proc.on('error', () => { if (windowProc === proc) { windowProc = null; openBrowserWindow(url); } });
+  proc.on('exit', (code) => {
+    if (windowProc !== proc) return;
+    windowProc = null;
+    // No WebView2 on this PC (code 3), or the window died before the page ever loaded: use a browser window instead.
+    if (code === 3 || (code !== 0 && lastPing < started)) { openBrowserWindow(url); return; }
+    // Closing the window ends the app when there's no tray icon to keep it running (opening a new window cancels this).
+    if (!trayActive && !shuttingDown) { clearTimeout(byeTimer); byeTimer = setTimeout(() => { if (!windowProc) process.exit(0); }, 4000); }
+  });
+  return true;
+}
+
 function openWindow(url) {
+  if (headless) return;
+  if (IS_WIN) {
+    if (windowProc) { windowShowSeq++; return; } // already open: bring it to the front
+    if (openNativeWindow(url)) return;
+  }
+  openBrowserWindow(url);
+}
+
+function openBrowserWindow(url) {
   if (headless) return;
   if (IS_WIN) {
     const candidates = [
