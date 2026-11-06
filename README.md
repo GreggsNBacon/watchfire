@@ -6,6 +6,8 @@ Open ports on your router for game servers, so friends outside your home can joi
 
 Pick a game, press **Forward ports**, and Watchfire asks your router to forward the right ports to this PC using UPnP. It shows what's open, gives you the address to send your friends, and puts the forwards back after a router reboot.
 
+![Watchfire with Minecraft and Valheim forwarded: the game list, router status and active forwards](docs/screenshots/main.png)
+
 Watchfire was called **PortHop**. Updating keeps everything: your games, settings and forwards move across on first start, and forwards made under the old name are still recognised.
 
 ## Download
@@ -36,6 +38,9 @@ When you're done, remove the forward from the **Active forwards** list, or use *
 - **Start with Windows** (in Settings), so forwards come back without you thinking about it.
 - **Cover art.** Steam games get their cover automatically. Add a free [SteamGridDB](https://www.steamgriddb.com/profile/preferences/api) key in Settings for covers of other games too.
 - **Colour themes:** Flame (default), Void, Light and High contrast, in Settings.
+
+  <img src="docs/screenshots/light.png" width="560" alt="Watchfire in the Light theme">
+
 - **Warns about problems** such as carrier-grade NAT (when your router's "internet" address is itself private, so forwarding can't work).
 
 ## If it can't find your router
