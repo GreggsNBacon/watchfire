@@ -1,8 +1,8 @@
 'use strict';
-// Builds dist/PortHop.exe (Node single-executable app). Usage: node build.js [--out <dir>]
+// Builds dist/Watchfire.exe (Node single-executable app). Usage: node build.js [--out <dir>]
 //
-// Versions: 1.2.<commit count>, like Hostbay's 0.3.<commit count>. The packaged exe reports it (Settings, /api/hello,
-// Hostbay) and carries it in its file properties along with PortHop's name and icon, instead of Node.js's. The 4th
+// Versions: 1.2.<commit count>, like Emberkeep's 0.3.<commit count>. The packaged exe reports it (Settings, /api/hello,
+// Emberkeep) and carries it in its file properties along with Watchfire's name and icon, instead of Node.js's. The 4th
 // part of the file version is the minute of the day, so a rebuild of the same commit still installs as an upgrade.
 const fs = require('fs');
 const path = require('path');
@@ -10,7 +10,7 @@ const { spawnSync } = require('child_process');
 
 const MAJOR_MINOR = '1.2';
 const root = __dirname;
-// Optional --out <dir>: build somewhere else (e.g. while dist/PortHop.exe is running and locked).
+// Optional --out <dir>: build somewhere else (e.g. while dist/Watchfire.exe is running and locked).
 const outIdx = process.argv.indexOf('--out');
 const dist = outIdx > 0 && process.argv[outIdx + 1] ? path.resolve(process.argv[outIdx + 1]) : path.join(root, 'dist');
 fs.mkdirSync(dist, { recursive: true });
@@ -39,7 +39,7 @@ console.log(`Version ${fileVersion}`);
   server = server.replace(versionLine, `const VERSION = '${version}';`);
   fs.writeFileSync(path.join(dist, 'bundle.js'), server);
 
-  const outName = process.platform === 'win32' ? 'PortHop.exe' : 'porthop'; // build on the OS you are targeting
+  const outName = process.platform === 'win32' ? 'Watchfire.exe' : 'watchfire'; // build on the OS you are targeting
   // 2. SEA config with embedded assets: the UI, game list, tray and window helpers, WebView2 SDK files, icon, and any
   //    pre-downloaded cover art in ./art.
   const assets = {
@@ -47,7 +47,8 @@ console.log(`Version ${fileVersion}`);
     'public/index.html': path.join(root, 'public', 'index.html'),
     'tray.ps1': path.join(root, 'tray.ps1'),
     'window.ps1': path.join(root, 'window.ps1'),
-    'assets/porthop.ico': path.join(root, 'assets', 'porthop.ico'),
+    'assets/watchfire.ico': path.join(root, 'assets', 'watchfire.ico'),
+    'assets/watchfire.svg': path.join(root, 'assets', 'watchfire.svg'),
   };
   for (const f of ['Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.WinForms.dll', 'WebView2Loader.dll'])
     assets[`vendor/webview2/${f}`] = path.join(root, 'vendor', 'webview2', f);
@@ -70,7 +71,7 @@ console.log(`Version ${fileVersion}`);
   const exe = path.join(dist, outName);
   if (process.platform !== 'win32') { fs.chmodSync(exe, 0o755); done(exe); return; }
 
-  // 3. PortHop's icon and version in the exe's resources, replacing Node.js's.
+  // 3. Watchfire's icon and version in the exe's resources, replacing Node.js's.
   let buf = await stampResources(fs.readFileSync(exe));
 
   // 4. Flip the PE subsystem from console to GUI so no black console window appears.
@@ -85,13 +86,13 @@ console.log(`Version ${fileVersion}`);
 async function stampResources(data) {
   let ResEdit;
   try { ResEdit = await import('resedit'); } catch {
-    throw new Error('The resedit package is missing: run "npm install" in the PortHop folder first.');
+    throw new Error('The resedit package is missing: run "npm install" in the Watchfire folder first.');
   }
   // Node's own signature no longer matches once anything changes, so it's dropped.
   const exe = ResEdit.NtExecutable.from(data, { ignoreCert: true });
   const res = ResEdit.NtExecutableResource.from(exe);
 
-  const iconFile = ResEdit.Data.IconFile.from(fs.readFileSync(path.join(root, 'assets', 'porthop.ico')));
+  const iconFile = ResEdit.Data.IconFile.from(fs.readFileSync(path.join(root, 'assets', 'watchfire.ico')));
   const groups = ResEdit.Resource.IconGroupEntry.fromEntries(res.entries);
   const icons = iconFile.icons.map((i) => i.data);
   if (groups.length) for (const g of groups) ResEdit.Resource.IconGroupEntry.replaceIconsForResource(res.entries, g.id, g.lang, icons);
@@ -102,15 +103,15 @@ async function stampResources(data) {
   vi.setFileVersion(v1, v2, v3, v4, 1033);
   vi.setProductVersion(v1, v2, v3, 0, 1033);
   const lang = { lang: 1033, codepage: 1200 };
-  // Replace every string table (Node's say "Node.js"), keeping just PortHop's.
+  // Replace every string table (Node's say "Node.js"), keeping just Watchfire's.
   for (const l of vi.getAllLanguagesForStringValues()) vi.removeAllStringValues(l);
   vi.setStringValues(lang, {
-    ProductName: 'PortHop',
-    FileDescription: 'PortHop: open ports on your router for game servers',
-    CompanyName: 'PortHop',
-    LegalCopyright: `© ${now.getFullYear()} PortHop`,
-    InternalName: 'PortHop',
-    OriginalFilename: 'PortHop.exe',
+    ProductName: 'Watchfire',
+    FileDescription: 'Watchfire: open ports on your router for game servers',
+    CompanyName: 'Watchfire',
+    LegalCopyright: `© ${now.getFullYear()} Watchfire`,
+    InternalName: 'Watchfire',
+    OriginalFilename: 'Watchfire.exe',
     FileVersion: fileVersion,
     ProductVersion: version,
   });

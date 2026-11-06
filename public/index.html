@@ -4,26 +4,51 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0a0c12">
-<title>PortHop</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<title>Watchfire</title>
 <style>
+  /* Four themes, picked in Settings: Flame (default), Void, Light, High contrast. --tint is what panels are lightened
+     (dark themes) or darkened (Light) with; --on-accent is text on the accent gradient. */
+  :root, [data-theme="flame"] {
+    --bg: #110d0c; --surface: #1a1412; --tint: #fff; --text: #f3ece6; --dim: #ab9f96;
+    --a: #ffb23a; --b: #f2681a; --on-accent: #1e1206; --ok: #34d399; --warn: #fbbf24; --bad: #f87171; --bad-text: var(--bad-text);
+    color-scheme: dark;
+  }
+  [data-theme="void"] {
+    --bg: #07070b; --surface: #0f1018; --tint: #fff; --text: #e8ebf3; --dim: #8a92a6;
+    --a: #38bdf8; --b: #8b5cf6; --on-accent: #fff; --bad-text: var(--bad-text);
+    color-scheme: dark;
+  }
+  [data-theme="light"] {
+    --bg: #f6f2ee; --surface: #ffffff; --tint: #3a2a20; --text: #221c19; --dim: #6b5f58;
+    --a: #d4501c; --b: #b8400f; --on-accent: #fff; --ok: #14905a; --warn: #b7791f; --bad: #d23c3c; --bad-text: #b02424;
+    color-scheme: light;
+  }
+  [data-theme="contrast"] {
+    --bg: #000; --surface: #000; --tint: #fff; --text: #fff; --dim: #fff;
+    --a: #ffd400; --b: #ffd400; --on-accent: #000; --ok: #3dff9a; --warn: #ffd400; --bad: #ff6262; --bad-text: #ff8a8a;
+    color-scheme: dark;
+  }
   :root {
-    --bg: #0a0c12; --panel: rgba(255,255,255,.04); --panel-2: rgba(255,255,255,.07);
-    --line: rgba(255,255,255,.08); --text: #e8ebf3; --dim: #8a92a6;
-    --a: #38bdf8; --b: #8b5cf6; --ok: #34d399; --warn: #fbbf24; --bad: #f87171;
+    --panel: color-mix(in srgb, var(--tint) 4%, transparent); --panel-2: color-mix(in srgb, var(--tint) 7%, transparent);
+    --line: color-mix(in srgb, var(--tint) 9%, transparent);
     --grad: linear-gradient(135deg, var(--a), var(--b));
   }
+  [data-theme="contrast"] { --line: #fff; }
+  [data-theme="contrast"] :focus-visible { outline: 3px solid #ffff00; outline-offset: 2px; }
+  [data-theme="contrast"] button, [data-theme="contrast"] input, [data-theme="contrast"] .card, [data-theme="contrast"] dialog { border: 1px solid #fff !important; }
   * { box-sizing: border-box; }
   html, body { margin: 0; min-height: 100%; }
   body {
     background: var(--bg); color: var(--text);
     font: 14px/1.45 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
     background-image:
-      radial-gradient(900px 500px at 8% -10%, rgba(56,189,248,.14), transparent 60%),
-      radial-gradient(800px 500px at 100% 0%, rgba(139,92,246,.14), transparent 60%);
+      radial-gradient(900px 500px at 8% -10%, color-mix(in srgb, var(--a) 14%, transparent), transparent 60%),
+      radial-gradient(800px 500px at 100% 0%, color-mix(in srgb, var(--b) 14%, transparent), transparent 60%);
     background-attachment: fixed;
   }
   .wrap { max-width: 1840px; margin: 0 auto; padding: 0 20px 60px; }
-  .sticky { position: sticky; top: 0; z-index: 20; margin: 0 -20px 18px; padding: 16px 20px 14px; background: rgba(10,12,18,.84); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
+  .sticky { position: sticky; top: 0; z-index: 20; margin: 0 -20px 18px; padding: 16px 20px 14px; background: color-mix(in srgb, var(--bg) 84%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
   .sticky header { margin-bottom: 12px; }
   .sticky .bar { margin-bottom: 0; }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 24px; align-items: start; }
@@ -46,8 +71,7 @@
   .macts { display: flex; flex: none; }
   header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
   .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -.02em; }
-  .logo i { width: 30px; height: 30px; border-radius: 9px; background: var(--grad); display: grid; place-items: center; box-shadow: 0 6px 24px rgba(99,102,241,.45); }
-  .logo svg { width: 18px; height: 18px; }
+  .logo img { display: block; filter: drop-shadow(0 4px 14px rgba(255,140,40,.35)); }
   .spacer { flex: 1; }
   .pill { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(10px); }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
@@ -62,35 +86,36 @@
   .ghost:hover { background: var(--panel-2); }
   .banner { padding: 12px 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid; display: none; }
   .banner.show { display: block; }
-  .banner.warn { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.35); color: #fde68a; }
-  .banner.bad { background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.35); color: #fecaca; }
+  .banner.warn { background: color-mix(in srgb, var(--warn) 8%, transparent); border-color: color-mix(in srgb, var(--warn) 35%, transparent); color: color-mix(in srgb, var(--warn) 55%, var(--text)); }
+  .banner.bad { background: color-mix(in srgb, var(--bad) 8%, transparent); border-color: color-mix(in srgb, var(--bad) 35%, transparent); color: var(--bad-text); }
   .bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
   .search { flex: 1; min-width: 220px; position: relative; }
   .search input { width: 100%; padding: 11px 14px 11px 38px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; outline: none; }
-  .search input:focus, dialog input:focus, dialog select:focus { border-color: var(--a); box-shadow: 0 0 0 3px rgba(56,189,248,.18); }
+  .search input:focus, dialog input:focus, dialog select:focus { border-color: var(--a); box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 18%, transparent); }
   .search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--dim); }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .chip { padding: 7px 13px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--dim); font-size: 13px; transition: .15s; }
   .chip:hover { color: var(--text); }
-  .chip.on { background: var(--grad); color: #fff; border-color: transparent; }
-  .primary { background: var(--grad); border: 0; color: #fff; font-weight: 600; padding: 10px 16px; border-radius: 12px; box-shadow: 0 6px 20px rgba(99,102,241,.35); transition: .15s; }
+  .theme-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 6px; }
+  .chip.on { background: var(--grad); color: var(--on-accent); border-color: transparent; }
+  .primary { background: var(--grad); border: 0; color: var(--on-accent); font-weight: 600; padding: 10px 16px; border-radius: 12px; box-shadow: 0 6px 20px color-mix(in srgb, var(--b) 35%, transparent); transition: .15s; }
   .primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(10px); transition: .2s; }
-  .card:hover { border-color: rgba(255,255,255,.18); transform: translateY(-2px); }
-  .card.active { border-color: rgba(52,211,153,.45); background: linear-gradient(180deg, rgba(52,211,153,.07), var(--panel)); }
+  .card:hover { border-color: color-mix(in srgb, var(--tint) 18%, transparent); transform: translateY(-2px); }
+  .card.active { border-color: color-mix(in srgb, var(--ok) 45%, transparent); background: linear-gradient(180deg, color-mix(in srgb, var(--ok) 7%, transparent), var(--panel)); }
   .top { display: flex; gap: 12px; align-items: center; }
   .cover { width: 64px; height: 96px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; font-size: 18px; color: #fff; flex: none; text-shadow: 0 1px 2px rgba(0,0,0,.3); overflow: hidden; position: relative; box-shadow: 0 8px 20px rgba(0,0,0,.4); }
   .cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .35s; }
   .cover img.in { opacity: 1; }
-  .card.running { border-color: rgba(251,191,36,.6); background: linear-gradient(180deg, rgba(251,191,36,.09), var(--panel)); animation: glow 2.4s ease-in-out infinite; }
-  .card.running.active { border-color: rgba(52,211,153,.55); background: linear-gradient(180deg, rgba(52,211,153,.09), var(--panel)); animation: none; }
-  @keyframes glow { 50% { box-shadow: 0 0 0 4px rgba(251,191,36,.14), 0 0 28px rgba(251,191,36,.18); } }
-  .badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: rgba(251,191,36,.15); color: var(--warn); }
-  .badge.ok { background: rgba(52,211,153,.15); color: var(--ok); }
+  .card.running { border-color: color-mix(in srgb, var(--warn) 60%, transparent); background: linear-gradient(180deg, color-mix(in srgb, var(--warn) 9%, transparent), var(--panel)); animation: glow 2.4s ease-in-out infinite; }
+  .card.running.active { border-color: color-mix(in srgb, var(--ok) 55%, transparent); background: linear-gradient(180deg, color-mix(in srgb, var(--ok) 9%, transparent), var(--panel)); animation: none; }
+  @keyframes glow { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 14%, transparent), 0 0 28px color-mix(in srgb, var(--warn) 18%, transparent); } }
+  .badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+  .badge.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
   .badge i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-  .card.running:not(.active) .fwd { background: var(--grad); border-color: transparent; color: #fff; box-shadow: 0 6px 20px rgba(99,102,241,.35); }
-  .toast .act { margin-left: 12px; padding: 4px 10px; border-radius: 8px; border: 0; background: var(--grad); color: #fff; font-weight: 600; }
+  .card.running:not(.active) .fwd { background: var(--grad); border-color: transparent; color: var(--on-accent); box-shadow: 0 6px 20px color-mix(in srgb, var(--b) 35%, transparent); }
+  .toast .act { margin-left: 12px; padding: 4px 10px; border-radius: 8px; border: 0; background: var(--grad); color: var(--on-accent); font-weight: 600; }
   .card { position: relative; }
   .cog { position: absolute; top: 10px; right: 44px; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--dim); font-size: 17px; line-height: 1; opacity: .45; transition: .15s; }
   .card:hover .cog, .cog:focus-visible { opacity: 1; }
@@ -103,10 +128,10 @@
   .optional { opacity: .6; }
   .prow { display: grid; grid-template-columns: 112px 1fr 34px; gap: 8px; margin-top: 8px; }
   .prow:first-child { margin-top: 0; }
-  .ghost.danger:hover { color: var(--bad); border-color: rgba(248,113,113,.45); }
+  .ghost.danger:hover { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, transparent); }
   .row .spacer { flex: 1; }
   .row { align-items: center; }
-  .tag.mod { background: rgba(139,92,246,.18); color: #c4b5fd; }
+  .tag.mod { background: color-mix(in srgb, var(--b) 18%, transparent); color: color-mix(in srgb, var(--b) 60%, var(--text)); }
   .card.addnew { border-style: dashed; cursor: pointer; }
   .card.addnew:hover { border-color: var(--a); }
   .iconbtn { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; }
@@ -115,25 +140,25 @@
   .name { font-weight: 600; font-size: 15px; }
   .cat { color: var(--dim); font-size: 12px; }
   .ports { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; align-content: flex-start; }
-  .port { font: 12px/1 ui-monospace, "Cascadia Code", Consolas, monospace; padding: 5px 8px; border-radius: 7px; background: rgba(255,255,255,.06); color: #cbd2e1; }
+  .port { font: 12px/1 ui-monospace, "Cascadia Code", Consolas, monospace; padding: 5px 8px; border-radius: 7px; background: color-mix(in srgb, var(--tint) 6%, transparent); color: color-mix(in srgb, var(--text) 85%, var(--dim)); }
   .port b { color: var(--a); font-weight: 600; margin-right: 4px; }
   .note { color: var(--dim); font-size: 12px; }
   .btns { display: flex; gap: 8px; }
   .btns .fwd { flex: 1; width: auto; }
   .copy { padding: 10px 14px; border-radius: 11px; border: 1px solid var(--line); background: var(--panel-2); font-weight: 600; white-space: nowrap; transition: .15s; }
-  .copy:hover { background: var(--grad); border-color: transparent; color: #fff; }
+  .copy:hover { background: var(--grad); border-color: transparent; color: var(--on-accent); }
   .infoline { padding: 10px 14px; margin-bottom: 10px; border-radius: 10px; font-size: 12.5px; color: var(--dim); background: var(--panel); border: 1px solid var(--line); }
   .fwd { width: 100%; padding: 10px; border-radius: 11px; border: 1px solid var(--line); background: var(--panel-2); font-weight: 600; transition: .15s; }
-  .fwd:hover { background: var(--grad); border-color: transparent; color: #fff; }
-  .card.active .fwd { flex: 0 0 auto; padding: 10px 16px; background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.35); color: var(--bad); }
-  .card.active .fwd:hover { background: rgba(248,113,113,.2); border-color: rgba(248,113,113,.6); color: #fecaca; }
+  .fwd:hover { background: var(--grad); border-color: transparent; color: var(--on-accent); }
+  .card.active .fwd { flex: 0 0 auto; padding: 10px 16px; background: color-mix(in srgb, var(--bad) 8%, transparent); border-color: color-mix(in srgb, var(--bad) 35%, transparent); color: var(--bad); }
+  .card.active .fwd:hover { background: color-mix(in srgb, var(--bad) 20%, transparent); border-color: color-mix(in srgb, var(--bad) 60%, transparent); color: var(--bad-text); }
   .btns .copy { flex: 1; }
-  .card.active .btns .copy { background: rgba(52,211,153,.14); border-color: rgba(52,211,153,.4); color: var(--ok); }
-  .card.active .btns .copy:hover { background: var(--grad); border-color: transparent; color: #fff; }
+  .card.active .btns .copy { background: color-mix(in srgb, var(--ok) 14%, transparent); border-color: color-mix(in srgb, var(--ok) 40%, transparent); color: var(--ok); }
+  .card.active .btns .copy:hover { background: var(--grad); border-color: transparent; color: var(--on-accent); }
   dialog label.chk { display: flex; align-items: center; gap: 10px; color: var(--text); font-size: 13.5px; margin-top: 14px; cursor: pointer; }
   dialog label.chk input { width: auto; }
   .rm { color: var(--bad) !important; }
-  .rm:hover { background: rgba(248,113,113,.12) !important; }
+  .rm:hover { background: color-mix(in srgb, var(--bad) 12%, transparent) !important; }
   h2 .spacer { flex: 1; }
   .fwd:disabled { opacity: .55; cursor: progress; }
   h2 { font-size: 16px; margin: 34px 0 12px; display: flex; align-items: center; gap: 10px; }
@@ -142,17 +167,17 @@
   th { color: var(--dim); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
   tr:last-child td { border-bottom: 0; }
   td.num { font-family: ui-monospace, Consolas, monospace; }
-  .tag { font-size: 11px; padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,.08); color: var(--dim); }
-  .tag.ours { background: rgba(56,189,248,.15); color: var(--a); }
+  .tag { font-size: 11px; padding: 2px 7px; border-radius: 6px; background: color-mix(in srgb, var(--tint) 8%, transparent); color: var(--dim); }
+  .tag.ours { background: color-mix(in srgb, var(--a) 15%, transparent); color: var(--a); }
   .empty { padding: 26px; text-align: center; color: var(--dim); background: var(--panel); border: 1px dashed var(--line); border-radius: 14px; }
   .x { background: none; border: 0; color: var(--dim); padding: 4px 8px; border-radius: 6px; }
-  .x:hover { color: var(--bad); background: rgba(248,113,113,.1); }
-  dialog { border: 1px solid var(--line); border-radius: 18px; background: #12151f; color: var(--text); padding: 24px; width: min(420px, 92vw); }
+  .x:hover { color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
+  dialog { border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--text); padding: 24px; width: min(420px, 92vw); }
   dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(4px); }
   dialog h3 { margin: 0 0 16px; }
   dialog label { display: block; color: var(--dim); font-size: 12px; margin: 12px 0 5px; }
   dialog input, dialog select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; outline: none; }
-  dialog select option { background: #12151f; }
+  dialog select option { background: var(--surface); }
   .row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
   #toasts { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
   .toast { padding: 12px 16px; border-radius: 12px; background: #1a1e2b; border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.4); max-width: 360px; animation: in .2s ease; }
@@ -165,7 +190,7 @@
 <div class="wrap">
   <div class="sticky" id="sticky">
   <header>
-    <div class="logo"><i><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i>PortHop</div>
+    <div class="logo"><img src="/logo.svg" alt="" width="30" height="30">Watchfire</div>
     <div class="spacer"></div>
     <div class="pill" id="status"><span class="dot wait"></span><span class="meta">Looking for your router…</span></div>
     <button class="ghost" id="rescan">Rescan</button>
@@ -232,16 +257,18 @@
 <dialog id="sdlg">
   <form method="dialog" id="sform">
     <h3>Settings</h3>
+    <label>Theme</label>
+    <div class="theme-chips" id="s-theme" role="radiogroup" aria-label="Colour theme"></div>
     <label>SteamGridDB API key (optional)</label>
     <input id="s-key" type="password" placeholder="Paste key to enable more cover art" autocomplete="off" spellcheck="false">
     <div class="help" id="s-state"></div>
     <div class="help">Covers for Steam games work without a key. A key adds non-Steam games (Minecraft, consoles) and any game you search for. Get a free one at <a href="https://www.steamgriddb.com/profile/preferences/api" target="_blank" rel="noopener noreferrer">steamgriddb.com</a>.</div>
-    <label class="chk"><input type="checkbox" id="s-startup"> <span id="s-startup-label">Start PortHop with Windows (runs in the tray)</span></label>
+    <label class="chk"><input type="checkbox" id="s-startup"> <span id="s-startup-label">Start Watchfire with Windows (runs in the tray)</span></label>
     <div class="help" id="s-startup-note"></div>
-    <label class="chk"><input type="checkbox" id="s-restore"> Restore my forwards when PortHop starts</label>
+    <label class="chk"><input type="checkbox" id="s-restore"> Restore my forwards when Watchfire starts</label>
     <div class="help" id="s-tray-note"></div>
     <div class="help" id="s-version"></div>
-    <div class="row"><button type="button" class="ghost rm" id="s-quit">Quit PortHop</button><button type="button" class="ghost rm" id="s-quit-close">Quit &amp; close forwards</button><span style="flex:1"></span><button type="button" class="ghost" id="s-cancel">Close</button><button class="primary" value="ok">Save</button></div>
+    <div class="row"><button type="button" class="ghost rm" id="s-quit">Quit Watchfire</button><button type="button" class="ghost rm" id="s-quit-close">Quit &amp; close forwards</button><span style="flex:1"></span><button type="button" class="ghost" id="s-cancel">Close</button><button class="primary" value="ok">Save</button></div>
   </form>
 </dialog>
 <div id="toasts"></div>
@@ -257,7 +284,7 @@ function h(tag, attrs, ...kids) {
   return el;
 }
 async function api(path, body) {
-  const opt = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-PortHop': '1' }, body: JSON.stringify(body) };
+  const opt = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Watchfire': '1' }, body: JSON.stringify(body) };
   const r = await fetch(path, opt);
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || 'Request failed');
@@ -462,10 +489,10 @@ async function loadMappings() {
   try { const r = await api('/api/mappings'); mappings = r.mappings; enumNote = r.enumerationError || null; } catch { mappings = []; enumNote = null; }
   renderGrid(); renderMaps();
 }
-// Per-row remove. Entries PortHop didn't create (other apps/games using UPnP) need a second click to confirm.
+// Per-row remove. Entries Watchfire didn't create (other apps/games using UPnP) need a second click to confirm.
 function removeRowButton(m) {
   let armed = false;
-  const btn = h('button', { class: 'x rm', title: m.ours ? 'Close this port' : 'This was not created by PortHop. Click twice to close it anyway.' }, 'Remove');
+  const btn = h('button', { class: 'x rm', title: m.ours ? 'Close this port' : 'This was not created by Watchfire. Click twice to close it anyway.' }, 'Remove');
   btn.onclick = async () => {
     if (!m.ours && !armed) { armed = true; btn.textContent = 'Sure?'; setTimeout(() => { armed = false; btn.textContent = 'Remove'; }, 4000); return; }
     btn.disabled = true; btn.textContent = '…';
@@ -495,11 +522,11 @@ function renderMaps() {
   const box = $('#maps'); box.replaceChildren();
   $('#maps-count').textContent = String(mappings.length);
   const mine = mappings.filter((m) => m.ours);
-  if (enumNote) box.append(h('div', { class: 'infoline' }, 'Your router won’t list its full forwarding table (' + enumNote + '). Showing the forwards PortHop made, each checked directly with the router.'));
+  if (enumNote) box.append(h('div', { class: 'infoline' }, 'Your router won’t list its full forwarding table (' + enumNote + '). Showing the forwards Watchfire made, each checked directly with the router.'));
   if (!mappings.length) { box.append(h('div', { class: 'empty' }, 'Nothing forwarded yet. Pick a game on the left.')); return; }
   const rows = mappings.map((m) => h('div', { class: 'mrow' },
     h('div', { class: 'mmain' },
-      h('div', { class: 'mname' }, m.description.replace(/^PortHop:\s*/, '') || '(unnamed)', ' ', m.ours ? h('span', { class: 'tag ours' }, 'PortHop') : h('span', { class: 'tag' }, 'other'), m.unverified ? h('span', { class: 'tag', title: 'The router could not confirm this entry' }, ' unverified') : null),
+      h('div', { class: 'mname' }, m.description.replace(/^Watchfire:\s*/, '') || '(unnamed)', ' ', m.ours ? h('span', { class: 'tag ours' }, 'Watchfire') : h('span', { class: 'tag' }, 'other'), m.unverified ? h('span', { class: 'tag', title: 'The router could not confirm this entry' }, ' unverified') : null),
       h('div', { class: 'msub' }, m.protocol + ' ' + m.port + ' → ' + m.internalClient)),
     h('div', { class: 'macts' },
       m.ours ? h('button', { class: 'x', title: 'Copy IP:port', onclick: () => copyAddress(m.port) }, 'Copy') : '',
@@ -621,28 +648,35 @@ $('#eform').addEventListener('submit', async (ev) => {
 });
 
 // ---- settings ----
+// Colour themes: applied straight away and saved with Watchfire's settings.
+const THEMES = [['flame', 'Flame'], ['void', 'Void'], ['light', 'Light'], ['contrast', 'High contrast']];
+function drawThemes(current) {
+  $('#s-theme').replaceChildren(...THEMES.map(([id, name]) => h('button', { type: 'button', class: `chip${id === current ? ' on' : ''}`, role: 'radio', 'aria-checked': String(id === current),
+    onclick: () => { document.documentElement.setAttribute('data-theme', id); drawThemes(id); api('/api/settings', { theme: id }).catch((e) => toast(e.message)); } }, name)));
+}
 async function loadSettings() {
   try {
     const s = await api('/api/settings');
     $('#s-state').textContent = s.hasSgdbKey ? '✓ A key is saved.' : 'No key saved.';
     $('#s-startup').checked = !!s.startup; $('#s-startup').disabled = !s.canStartup;
-    $('#s-startup-label').textContent = s.platform === 'win32' ? 'Start PortHop with Windows (runs in the tray)' : 'Start PortHop when I log in';
-    $('#s-startup-note').textContent = s.canStartup ? '' : 'Available in the packaged PortHop build only.';
-    $('#s-tray-note').textContent = s.trayActive ? 'Closing this window leaves PortHop running in the system tray. Use the tray icon, or the buttons below, to quit.' : 'Closing this window quits PortHop. Your forwards stay open on the router unless you use "Quit & close forwards".';
+    $('#s-startup-label').textContent = s.platform === 'win32' ? 'Start Watchfire with Windows (runs in the tray)' : 'Start Watchfire when I log in';
+    $('#s-startup-note').textContent = s.canStartup ? '' : 'Available in the packaged Watchfire build only.';
+    $('#s-tray-note').textContent = s.trayActive ? 'Closing this window leaves Watchfire running in the system tray. Use the tray icon, or the buttons below, to quit.' : 'Closing this window quits Watchfire. Your forwards stay open on the router unless you use "Quit & close forwards".';
     $('#s-restore').checked = s.restore !== false;
-    $('#s-version').textContent = s.version ? `PortHop ${s.version}` : '';
+    $('#s-version').textContent = s.version ? `Watchfire ${s.version}` : '';
+    drawThemes(s.theme || 'flame');
   } catch { /* ignore */ }
 }
 for (const [id, key] of [['#s-startup', 'startup'], ['#s-restore', 'restore']]) {
   $(id).onchange = async (e) => {
     const box = e.currentTarget, want = box.checked;
-    try { await api('/api/settings', { [key]: want }); toast(key === 'startup' ? (want ? 'PortHop will start with Windows' : 'Startup disabled') : (want ? 'Forwards will be restored on launch' : 'Forwards will not be restored')); }
+    try { await api('/api/settings', { [key]: want }); toast(key === 'startup' ? (want ? 'Watchfire will start with Windows' : 'Startup disabled') : (want ? 'Forwards will be restored on launch' : 'Forwards will not be restored')); }
     catch (err) { box.checked = !want; toast(err.message, 'bad'); }
   };
 }
 async function quitApp(closeForwards) {
   try { await api('/api/quit', closeForwards ? { closeForwards: true } : {}); } catch { /* server exiting */ }
-  document.body.innerHTML = '<p style="padding:40px;font:15px system-ui;color:#9aa4b2">PortHop has exited. You can close this window.</p>';
+  document.body.innerHTML = '<p style="padding:40px;font:15px system-ui;color:#9aa4b2">Watchfire has exited. You can close this window.</p>';
   setTimeout(() => window.close(), 300);
 }
 $('#s-quit').onclick = () => quitApp(false);
@@ -673,14 +707,14 @@ $('#rescan').onclick = async () => { st = null; renderStatus(); try { st = await
     const r = st.restore, parts = [];
     if (r.restored) parts.push(`restored ${r.restored} forwarded port${r.restored === 1 ? '' : 's'}`);
     if (r.conflicts) parts.push(`${r.conflicts} could not be restored (in use by another device)`);
-    toast('PortHop ' + parts.join(', '), r.conflicts ? 'bad' : undefined);
+    toast('Watchfire ' + parts.join(', '), r.conflicts ? 'bad' : undefined);
   }
   await loadMappings(); pollRunning();
   setInterval(pollRunning, 5000);
 })();
-// When PortHop quits (tray Exit, or the buttons in Settings) the server tells this window, which then closes itself.
+// When Watchfire quits (tray Exit, or the buttons in Settings) the server tells this window, which then closes itself.
 function showGone() {
-  document.body.innerHTML = '<p style="padding:40px;font:15px system-ui;color:#9aa4b2">PortHop has exited. You can close this window.</p>';
+  document.body.innerHTML = '<p style="padding:40px;font:15px system-ui;color:#9aa4b2">Watchfire has exited. You can close this window.</p>';
   setTimeout(() => window.close(), 150);
 }
 new EventSource('/api/events').addEventListener('quit', showGone);

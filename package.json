@@ -1,5 +1,5 @@
 {
-  "name": "porthop",
+  "name": "watchfire",
   "private": true,
   "description": "Open ports on your router for game servers (UPnP).",
   "scripts": {

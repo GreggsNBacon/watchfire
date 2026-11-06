@@ -1,7 +1,7 @@
 param([int]$Port, [string]$Dir, [string]$DataDir)
-# PortHop's own window: the UI in WebView2 (the Edge engine built into Windows), with a dark title bar and PortHop's
-# icon, instead of an Edge "app" window. Started by PortHop; talks only to http://127.0.0.1:$Port.
-# Exit codes: 0 closed normally, 3 WebView2 couldn't start (PortHop then falls back to an Edge app window).
+# Watchfire's own window: the UI in WebView2 (the Edge engine built into Windows), with a dark title bar and Watchfire's
+# icon, instead of an Edge "app" window. Started by Watchfire; talks only to http://127.0.0.1:$Port.
+# Exit codes: 0 closed normally, 3 WebView2 couldn't start (Watchfire then falls back to an Edge app window).
 $ErrorActionPreference = 'Stop'
 $base = "http://127.0.0.1:$Port"
 
@@ -17,16 +17,16 @@ public static class PhNative {
   public static void DarkTitleBar(IntPtr h) { int on = 1; if (DwmSetWindowAttribute(h, 20, ref on, 4) != 0) DwmSetWindowAttribute(h, 19, ref on, 4); }
 }
 '@
-# Why the window couldn't open goes to window-error.log next to this script; PortHop then uses a browser window.
+# Why the window couldn't open goes to window-error.log next to this script; Watchfire then uses a browser window.
 function Fail([string]$why) {
   try { Add-Content -Path (Join-Path $Dir 'window-error.log') -Value ("{0:u} {1}" -f (Get-Date), $why) -Encoding UTF8 } catch { }
   [Environment]::Exit(3)
 }
 
-# Sharp text on high-DPI screens (must happen before any window exists), and a taskbar button of PortHop's own
+# Sharp text on high-DPI screens (must happen before any window exists), and a taskbar button of Watchfire's own
 # rather than PowerShell's.
 [void][PhNative]::SetProcessDpiAwarenessContext([IntPtr]::new(-4))
-[void][PhNative]::SetCurrentProcessExplicitAppUserModelID('PortHop.App')
+[void][PhNative]::SetCurrentProcessExplicitAppUserModelID('Watchfire.App')
 
 try {
   Add-Type -AssemblyName System.Windows.Forms, System.Drawing, System.Net.Http
@@ -42,13 +42,13 @@ $scale = [PhNative]::GetDpiForSystem() / 96.0
 $area = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'PortHop'
+$form.Text = 'Watchfire'
 $form.BackColor = $bg
 $form.StartPosition = 'CenterScreen'
 $form.Size = New-Object System.Drawing.Size ([math]::Min([int](1180 * $scale), $area.Width - 60)), ([math]::Min([int](800 * $scale), $area.Height - 60))
 $form.MinimumSize = New-Object System.Drawing.Size ([int](720 * $scale)), ([int](520 * $scale))
-try { $form.Icon = New-Object System.Drawing.Icon (Join-Path $Dir 'porthop.ico') } catch { }
-# PortHop starts this script hidden (no console flash), and Windows applies that to the first ShowWindow call: spend that
+try { $form.Icon = New-Object System.Drawing.Icon (Join-Path $Dir 'watchfire.ico') } catch { }
+# Watchfire starts this script hidden (no console flash), and Windows applies that to the first ShowWindow call: spend that
 # call here, before the form is shown, so the window itself appears normally.
 $form.Add_HandleCreated({ [void][PhNative]::ShowWindow($form.Handle, 0); [PhNative]::DarkTitleBar($form.Handle) })
 # Opened from the tray or a second launch, the window must come to the front rather than open behind others.
@@ -73,16 +73,16 @@ $web.Add_CoreWebView2InitializationCompleted({
   $core.Settings.IsStatusBarEnabled = $false
   $core.Settings.AreDevToolsEnabled = $false
   $core.Settings.IsZoomControlEnabled = $true
-  $core.add_DocumentTitleChanged({ $t = $web.CoreWebView2.DocumentTitle; $form.Text = $(if ($t) { $t } else { 'PortHop' }) })
-  # Links that leave PortHop open in the real browser.
+  $core.add_DocumentTitleChanged({ $t = $web.CoreWebView2.DocumentTitle; $form.Text = $(if ($t) { $t } else { 'Watchfire' }) })
+  # Links that leave Watchfire open in the real browser.
   $core.add_NewWindowRequested({ param($s2, $a) $a.Handled = $true; Open-External $a.Uri })
   $core.add_NavigationStarting({ param($s2, $a) if (-not $a.Uri.StartsWith($base, [StringComparison]::OrdinalIgnoreCase)) { $a.Cancel = $true; Open-External $a.Uri } })
-  # The page calls window.close() when PortHop quits.
+  # The page calls window.close() when Watchfire quits.
   $core.add_WindowCloseRequested({ $form.Close() })
 })
 $web.Source = New-Object System.Uri ("$base/")
 
-# PortHop asks an open window to come forward (second launch, tray "Open PortHop") through /api/window.
+# Watchfire asks an open window to come forward (second launch, tray "Open Watchfire") through /api/window.
 $handler = New-Object System.Net.Http.HttpClientHandler
 $handler.UseProxy = $false
 $http = New-Object System.Net.Http.HttpClient($handler)

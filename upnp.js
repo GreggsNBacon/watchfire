@@ -33,7 +33,7 @@ function request(urlStr, { method = 'GET', headers = {}, body = null, timeout = 
   return new Promise((resolve, reject) => {
     const u = new URL(urlStr);
     // Tests may run the fake router on loopback (no firewall prompt); only when the test hook is set.
-    const testLoopback = !!process.env.PORTHOP_TEST_GATEWAY && u.hostname === '127.0.0.1';
+    const testLoopback = !!(process.env.WATCHFIRE_TEST_GATEWAY || process.env.PORTHOP_TEST_GATEWAY) && u.hostname === '127.0.0.1';
     if (!isPrivateHost(u.hostname) && !testLoopback) return reject(new Error('Refusing non-LAN gateway address'));
     const req = http.request({ hostname: u.hostname, port: u.port || 80, path: u.pathname + u.search, method, headers, timeout }, (res) => {
       const chunks = [];

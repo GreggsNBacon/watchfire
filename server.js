@@ -23,7 +23,9 @@ const artMisses = new Set(); // don't re-hit the network this session for covers
 let artChain = Promise.resolve();
 const enqueueArt = (fn) => { const p = artChain.then(fn); artChain = p.catch(() => {}); return p; };
 
-const TAG = 'PortHop:';
+const TAG = 'Watchfire:';
+const LEGACY_TAGS = ['PortHop:']; // Watchfire was called PortHop: forwards it made then are still ours
+const isOurDescription = (d) => typeof d === 'string' && (d.startsWith(TAG) || LEGACY_TAGS.some((t) => d.startsWith(t)));
 const VERSION = '1.2.0-dev'; // build.js stamps the real version (1.2.<commit count>) into the packaged exe
 const MAX_PORTS_PER_REQUEST = 200;
 let httpPort = 0;
@@ -99,11 +101,11 @@ function ensureGateway(force = false) {
 
 async function discoverGateway() {
   gw = null; localIp = null; lastError = null;
-  if (process.env.PORTHOP_TEST_GATEWAY) { // test hook: talk to a specific (fake) router description URL instead of scanning the network
-    try { gw = await upnp.describeAt(process.env.PORTHOP_TEST_GATEWAY); localIp = await upnp.localIpFor(gw.host); } catch (e) { lastError = e.message; }
+  if ((process.env.WATCHFIRE_TEST_GATEWAY || process.env.PORTHOP_TEST_GATEWAY)) { // test hook: talk to a specific (fake) router description URL instead of scanning the network
+    try { gw = await upnp.describeAt((process.env.WATCHFIRE_TEST_GATEWAY || process.env.PORTHOP_TEST_GATEWAY)); localIp = await upnp.localIpFor(gw.host); } catch (e) { lastError = e.message; }
     return gw;
   }
-  if (process.env.PORTHOP_OFFLINE) { lastError = 'Offline mode (PORTHOP_OFFLINE is set) — router discovery disabled.'; return null; }
+  if ((process.env.WATCHFIRE_OFFLINE || process.env.PORTHOP_OFFLINE)) { lastError = 'Offline mode (WATCHFIRE_OFFLINE is set) — router discovery disabled.'; return null; }
   try {
     gw = await upnp.discover();
     if (!gw) lastError = 'No UPnP router found. Make sure UPnP is enabled in your router settings.';
@@ -203,7 +205,7 @@ async function removePorts(ports, { force = false } = {}) {
     if (!owned) {
       try {
         const m = await upnp.getSpecificMapping(g, p);
-        owned = m.description.startsWith(TAG) || (force && m.internalClient === localIp);
+        owned = isOurDescription(m.description) || (force && m.internalClient === localIp);
       } catch { owned = false; }
     }
     if (!owned) { results.push({ ...p, ok: true, skipped: true }); continue; }
@@ -237,7 +239,7 @@ async function gatherMappings(g) {
   }
   const mappings = [...entries, ...extra].map((m) => ({
     ...m,
-    ours: m.description.startsWith(TAG) || regKeys.has(fkey(m)), // some routers rewrite descriptions, so trust the registry too
+    ours: isOurDescription(m.description) || regKeys.has(fkey(m)), // some routers rewrite descriptions, so trust the registry too
     mine: m.internalClient === localIp,
   }));
   snapshot.mappings = mappings;
@@ -330,13 +332,13 @@ async function startupEnabled() {
   return startupCache;
 }
 
-// ---------- companion apps (Hostbay) ----------
+// ---------- companion apps (Emberkeep) ----------
 // What's forwarded to this PC right now, from the cached snapshot: answers instantly, never waits on the router.
 // The snapshot refreshes every minute and after every forward/remove.
 function forwardedPayload() {
   const ports = snapshot.mappings
     .filter((m) => m.mine)
-    .map((m) => ({ port: m.port, protocol: m.protocol, enabled: m.enabled !== false, ours: !!m.ours, name: String(m.description || '').replace(/^PortHop:\s*/, '') }));
+    .map((m) => ({ port: m.port, protocol: m.protocol, enabled: m.enabled !== false, ours: !!m.ours, name: String(m.description || '').replace(/^Watchfire:\s*/, '') }));
   return { router: gw ? gw.name : '', routerFound: !!gw, localIp, externalIp: snapshot.externalIp || '', ports, error: gw ? null : lastError };
 }
 
@@ -352,7 +354,9 @@ function startTray() {
     const script = path.join(store.dataDir, 'tray.ps1');
     fs.writeFileSync(script, '\ufeff' + readAsset('tray.ps1').toString('utf8')); // BOM so Windows PowerShell reads it as UTF-8
     const ps = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-    trayProc = spawn(ps, ['-NoProfile', '-NonInteractive', '-STA', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', script, '-Port', String(httpPort)], { windowsHide: true, stdio: 'ignore' });
+    let icon = '';
+    try { icon = path.join(prepareWindowFiles(), 'watchfire.ico'); } catch { /* the tray draws a plain stand-in */ }
+    trayProc = spawn(ps, ['-NoProfile', '-NonInteractive', '-STA', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', script, '-Port', String(httpPort), '-IconPath', icon], { windowsHide: true, stdio: 'ignore' });
     trayProc.on('exit', () => { trayActive = false; trayProc = null; });
     trayProc.on('error', () => { trayActive = false; trayProc = null; });
   } catch { trayProc = null; }
@@ -373,6 +377,7 @@ async function settingsPayload() {
   return {
     hasSgdbKey: !!art.getSgdbKey(),
     restore: store.loadPrefs().restore,
+    theme: store.loadPrefs().theme,
     version: VERSION,
     favs: store.loadPrefs().favs,
     collapsed: store.loadPrefs().collapsed,
@@ -417,7 +422,13 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': "default-src 'self'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'" });
-      return res.end(readAsset('public/index.html'));
+      // The saved theme goes straight into the page, so it never flashes the wrong colours while loading.
+      return res.end(readAsset('public/index.html').toString('utf8').replace('<html lang="en">', `<html lang="en" data-theme="${store.loadPrefs().theme}">`));
+    }
+    if (req.method === 'GET' && (url.pathname === '/logo.svg' || url.pathname === '/favicon.ico')) {
+      const svg = url.pathname === '/logo.svg';
+      res.writeHead(200, { 'Content-Type': svg ? 'image/svg+xml' : 'image/x-icon', 'Cache-Control': 'max-age=3600' });
+      return res.end(readAsset(svg ? 'assets/watchfire.svg' : 'assets/watchfire.ico'));
     }
 
     if (req.method === 'GET' && url.pathname.startsWith('/art/')) {
@@ -431,7 +442,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST') {
       if (!originOk(req)) return send(res, 403, { error: 'Bad origin' });
-      if (url.pathname !== '/api/bye' && req.headers['x-porthop'] !== '1') return send(res, 403, { error: 'Missing header' }); // CSRF guard
+      if (url.pathname !== '/api/bye' && req.headers['x-watchfire'] !== '1' && req.headers['x-porthop'] !== '1') return send(res, 403, { error: 'Missing header' }); // CSRF guard
     }
 
     if (req.method === 'GET' && url.pathname === '/api/ping') {
@@ -439,7 +450,7 @@ const server = http.createServer(async (req, res) => {
       if (byeTimer) { clearTimeout(byeTimer); byeTimer = null; }
       return send(res, 200, { ok: true });
     }
-    if (req.method === 'GET' && url.pathname === '/api/events') { // server-sent events: lets PortHop close its window on quit, no polling
+    if (req.method === 'GET' && url.pathname === '/api/events') { // server-sent events: lets Watchfire close its window on quit, no polling
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
       res.write(': ok\n\n');
       eventClients.add(res);
@@ -451,14 +462,14 @@ const server = http.createServer(async (req, res) => {
       if (!trayActive) byeTimer = setTimeout(() => process.exit(0), 4000); // cancelled by a ping if it was only a reload
       return send(res, 200, { ok: true });
     }
-    // Second launches and companion apps (Hostbay) use this to detect us. api: bumped when the companion API changes.
-    if (req.method === 'GET' && url.pathname === '/api/hello') return send(res, 200, { app: 'porthop', version: VERSION, api: 1 });
+    // Second launches and companion apps (Emberkeep) use this to detect us. api: bumped when the companion API changes.
+    if (req.method === 'GET' && url.pathname === '/api/hello') return send(res, 200, { app: 'watchfire', version: VERSION, api: 1 });
     if (req.method === 'GET' && url.pathname === '/api/forwarded') return send(res, 200, forwardedPayload());
     if (req.method === 'GET' && url.pathname === '/api/tray') return send(res, 200, trayData());
     if (req.method === 'POST' && url.pathname === '/api/tray/ready') { trayActive = true; return send(res, 200, { ok: true }); }
-    if (req.method === 'GET' && url.pathname === '/api/window') return send(res, 200, { show: windowShowSeq }); // polled by PortHop's own window
+    if (req.method === 'GET' && url.pathname === '/api/window') return send(res, 200, { show: windowShowSeq }); // polled by Watchfire's own window
     if (req.method === 'POST' && url.pathname === '/api/show') {
-      if (windowProc) windowShowSeq++; // PortHop's own window is open: bring it to the front
+      if (windowProc) windowShowSeq++; // Watchfire's own window is open: bring it to the front
       else if (Date.now() - lastPing > 10000) openWindow(`http://127.0.0.1:${httpPort}/`); // a browser window is already up: leave it alone
       return send(res, 200, { ok: true });
     }
@@ -527,8 +538,9 @@ const server = http.createServer(async (req, res) => {
       const strList = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.length <= 80).slice(0, 300) : []);
       if ('favs' in body) store.savePrefs({ favs: strList(body.favs) });
       if ('collapsed' in body) store.savePrefs({ collapsed: strList(body.collapsed) });
+      if ('theme' in body) store.savePrefs({ theme: String(body.theme) });
       if ('startup' in body) {
-        if (!sea) return send(res, 400, { error: 'Starting with the system is only available in the packaged PortHop build.' });
+        if (!sea) return send(res, 400, { error: 'Starting with the system is only available in the packaged Watchfire build.' });
         await autostart.setEnabled(!!body.startup, process.execPath);
         startupCache = null; // re-read what actually got written
       }
@@ -608,13 +620,13 @@ function launch(file, args) {
   try { const c = spawn(file, args, { detached: true, stdio: 'ignore' }); c.on('error', () => {}); c.unref(); } catch { /* ignore */ }
 }
 
-// ---------- PortHop's own window (Windows) ----------
-// window.ps1 shows the UI in WebView2 with a dark title bar and PortHop's icon. Its files are unpacked next to the
-// app's data; if WebView2 isn't available it exits with code 3 and PortHop falls back to an Edge/Chrome app window.
+// ---------- Watchfire's own window (Windows) ----------
+// window.ps1 shows the UI in WebView2 with a dark title bar and Watchfire's icon. Its files are unpacked next to the
+// app's data; if WebView2 isn't available it exits with code 3 and Watchfire falls back to an Edge/Chrome app window.
 let windowProc = null;
 let windowShowSeq = 0;
 const WINDOW_FILES = ['vendor/webview2/Microsoft.Web.WebView2.Core.dll', 'vendor/webview2/Microsoft.Web.WebView2.WinForms.dll',
-  'vendor/webview2/WebView2Loader.dll', 'assets/porthop.ico', 'window.ps1'];
+  'vendor/webview2/WebView2Loader.dll', 'assets/watchfire.ico', 'window.ps1'];
 
 function prepareWindowFiles() {
   const dir = path.join(store.dataDir, 'window');
@@ -633,7 +645,7 @@ function prepareWindowFiles() {
 }
 
 function openNativeWindow(url) {
-  if (process.env.PORTHOP_BROWSER_WINDOW) return false; // escape hatch: always use the browser's app window
+  if ((process.env.WATCHFIRE_BROWSER_WINDOW || process.env.PORTHOP_BROWSER_WINDOW)) return false; // escape hatch: always use the browser's app window
   let dir;
   try { dir = prepareWindowFiles(); } catch { return false; }
   const ps = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
@@ -689,7 +701,7 @@ function openBrowserWindow(url) {
 
 function httpLocal(port, method, pathName) {
   return new Promise((resolve) => {
-    const req = http.request({ host: '127.0.0.1', port, path: pathName, method, timeout: 1500, headers: method === 'POST' ? { 'X-PortHop': '1', 'Content-Length': 0 } : {} }, (res) => {
+    const req = http.request({ host: '127.0.0.1', port, path: pathName, method, timeout: 1500, headers: method === 'POST' ? { 'X-Watchfire': '1', 'Content-Length': 0 } : {} }, (res) => {
       let data = '';
       res.on('data', (c) => { data += c; });
       res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
@@ -702,11 +714,11 @@ function httpLocal(port, method, pathName) {
 
 (async function main() {
   const background = process.argv.includes('--background'); // started with Windows: tray only, no window
-  // Single instance: if PortHop is already running, hand over to it (open its window) and quit.
+  // Single instance: if Watchfire is already running, hand over to it (open its window) and quit.
   const other = store.readInstance();
   if (other && other.pid !== process.pid) {
     const hello = await httpLocal(other.port, 'GET', '/api/hello');
-    if (hello && hello.app === 'porthop') {
+    if (hello && hello.app === 'watchfire') {
       if (!background) await httpLocal(other.port, 'POST', '/api/show');
       process.exit(0);
     }
@@ -719,7 +731,7 @@ function httpLocal(port, method, pathName) {
     const url = `http://127.0.0.1:${httpPort}/`;
     store.writeInstance({ port: httpPort, pid: process.pid });
     process.on('exit', () => store.clearInstance(process.pid));
-    if (!sea || !IS_WIN || headless) console.log(`PortHop running at ${url}${headless ? '  (no display detected: open this in a browser, e.g. through an SSH tunnel)' : ''}`);
+    if (!sea || !IS_WIN || headless) console.log(`Watchfire running at ${url}${headless ? '  (no display detected: open this in a browser, e.g. through an SSH tunnel)' : ''}`);
 
     bootstrap().catch(() => {});
     startupEnabled().catch(() => {}); // warm the cache so the tray's first menu is right

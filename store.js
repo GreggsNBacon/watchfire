@@ -1,12 +1,23 @@
 'use strict';
-// Per-user game customisations (survives rebuilds). Lives in %LOCALAPPDATA%\PortHop\games-user.json
+// Per-user game customisations (survives rebuilds). Lives in %LOCALAPPDATA%\Watchfire\games-user.json
 //   overrides: { [builtInGameId]: { name?, category?, ports?, procs?, note? } }
 //   userGames: [ { id, name, category, ports, procs, note } ]
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const dataDir = path.join(process.env.LOCALAPPDATA || process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'PortHop');
+const dataRoot = process.env.LOCALAPPDATA || process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+const dataDir = path.join(dataRoot, 'Watchfire');
+// Watchfire was called PortHop: the first run after the rename moves its folder across (games, forwards, settings).
+(function migrateFromPortHop() {
+  const old = path.join(dataRoot, 'PortHop');
+  if (fs.existsSync(dataDir) || !fs.existsSync(old)) return;
+  try { fs.renameSync(old, dataDir); } catch {
+    // Something still has a file open: copy instead, leaving the old folder as it was.
+    try { fs.cpSync(old, dataDir, { recursive: true }); } catch { /* start fresh */ }
+  }
+  try { fs.rmSync(path.join(dataDir, 'instance.json'), { force: true }); } catch { /* not there */ } // belonged to the old app
+})();
 const file = path.join(dataDir, 'games-user.json');
 
 function load() {
@@ -28,7 +39,7 @@ function save(data) {
   fs.renameSync(tmp, file);
 }
 
-// Registry of ports PortHop has forwarded, so we can show/verify/remove them even if the router won't list its table.
+// Registry of ports Watchfire has forwarded, so we can show/verify/remove them even if the router won't list its table.
 const fwdFile = path.join(dataDir, 'forwards.json');
 const MAX_FORWARDS = 150;
 
@@ -57,7 +68,8 @@ function readSettingsFile() {
 function loadPrefs() {
   const s = readSettingsFile();
   const list = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.length <= 80).slice(0, 300) : []);
-  return { restore: s.restore !== false, favs: list(s.favs), collapsed: list(s.collapsed) }; // restoring forwards is on unless the user turned it off
+  const theme = ['flame', 'void', 'light', 'contrast'].includes(s.theme) ? s.theme : 'flame'; // colour theme, picked in Settings
+  return { restore: s.restore !== false, favs: list(s.favs), collapsed: list(s.collapsed), theme }; // restoring forwards is on unless the user turned it off
 }
 function savePrefs(partial) {
   fs.mkdirSync(dataDir, { recursive: true });

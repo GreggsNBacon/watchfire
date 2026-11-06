@@ -1,7 +1,7 @@
 'use strict';
 // Downloads cover art for every game in games.json into ./art so `node build.js` can embed it in the exe.
 // Usage:  node fetch-art.js            (add --force to re-download everything)
-// For best coverage set a free SteamGridDB key first:  $env:PORTHOP_SGDB_KEY = "yourkey"
+// For best coverage set a free SteamGridDB key first:  $env:WATCHFIRE_SGDB_KEY = "yourkey"
 // Without a key, Steam's public CDN is used (Steam games only).
 const fs = require('fs');
 const path = require('path');
