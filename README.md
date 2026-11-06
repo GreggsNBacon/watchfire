@@ -37,6 +37,7 @@ When you're done, remove the forward from the **Active forwards** list, or use *
 - **Tray icon.** Watchfire lives in the system tray. A green dot means something is forwarded, and the menu lists your forwards (click one to copy its address).
 - **Start with Windows** (in Settings), so forwards come back without you thinking about it.
 - **Cover art.** Steam games get their cover automatically. Add a free [SteamGridDB](https://www.steamgriddb.com/profile/preferences/api) key in Settings for covers of other games too.
+- **Update check.** When a newer Watchfire is out, an "Update available" link appears at the top, leading to the download page. If you installed Watchfire with Emberkeep, update Emberkeep instead: its installer includes Watchfire.
 - **Colour themes:** Flame (default), Void, Light and High contrast, in Settings.
 
   <img src="docs/screenshots/light.png" width="560" alt="Watchfire in the Light theme">
@@ -55,7 +56,7 @@ Closing the window quits Watchfire, but your forwards **stay open** on the route
 
 ## Privacy
 
-Watchfire only talks to your router on your local network, plus Steam and SteamGridDB for cover art. Its page is only reachable from this PC (`127.0.0.1`), and requests that change anything must carry a header that other websites can't send.
+Watchfire only talks to your router on your local network, Steam and SteamGridDB for cover art, and GitHub to check for updates (when it starts and every 12 hours; turn this off in Settings). Its page is only reachable from this PC (`127.0.0.1`), and requests that change anything must carry a header that other websites can't send.
 
 ## Where things are stored
 

@@ -74,6 +74,11 @@
   .logo img { display: block; filter: drop-shadow(0 4px 14px rgba(255,140,40,.35)); }
   .spacer { flex: 1; }
   .pill { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(10px); }
+  .pill.upd { color: var(--a); border-color: color-mix(in srgb, var(--a) 55%, transparent); text-decoration: none; font-weight: 600; }
+  .pill.upd:hover { background: color-mix(in srgb, var(--a) 14%, transparent); }
+  .pill.upd[hidden] { display: none; }
+  .upd-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .upd-row button { padding: 4px 10px; font-size: 12px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
   .dot.ok { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
   .dot.bad { background: var(--bad); box-shadow: 0 0 10px var(--bad); }
@@ -193,6 +198,7 @@
     <div class="logo"><img src="/logo.svg" alt="" width="30" height="30">Watchfire</div>
     <div class="spacer"></div>
     <div class="pill" id="status"><span class="dot wait"></span><span class="meta">Looking for your router…</span></div>
+    <a class="pill upd" id="upd" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
     <button class="ghost" id="rescan">Rescan</button>
     <button class="ghost iconbtn" id="gear" title="Settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   </header>
@@ -267,7 +273,9 @@
     <div class="help" id="s-startup-note"></div>
     <label class="chk"><input type="checkbox" id="s-restore"> Restore my forwards when Watchfire starts</label>
     <div class="help" id="s-tray-note"></div>
-    <div class="help" id="s-version"></div>
+    <label class="chk"><input type="checkbox" id="s-updates"> Check for updates</label>
+    <div class="help">Asks GitHub for Watchfire's latest release when Watchfire starts and every 12 hours. Nothing about you is sent.</div>
+    <div class="help upd-row"><span id="s-version"></span> <span id="s-upd-status"></span> <button type="button" class="ghost small" id="s-upd-check">Check now</button></div>
     <div class="row"><button type="button" class="ghost rm" id="s-quit">Quit Watchfire</button><button type="button" class="ghost rm" id="s-quit-close">Quit &amp; close forwards</button><span style="flex:1"></span><button type="button" class="ghost" id="s-cancel">Close</button><button class="primary" value="ok">Save</button></div>
   </form>
 </dialog>
@@ -654,6 +662,33 @@ function drawThemes(current) {
   $('#s-theme').replaceChildren(...THEMES.map(([id, name]) => h('button', { type: 'button', class: `chip${id === current ? ' on' : ''}`, role: 'radio', 'aria-checked': String(id === current),
     onclick: () => { document.documentElement.setAttribute('data-theme', id); drawThemes(id); api('/api/settings', { theme: id }).catch((e) => toast(e.message)); } }, name)));
 }
+// Update notice: a link in the header when a newer Watchfire is out, and the status line in Settings.
+function showUpdate(u) {
+  const a = u && u.available;
+  const pill = $('#upd');
+  pill.hidden = !a;
+  if (a) { pill.textContent = `Update available: ${a.version}`; pill.href = a.pageUrl; pill.title = 'Opens the download page'; }
+  const st = $('#s-upd-status');
+  if (st) {
+    st.replaceChildren();
+    if (a) st.append(`Watchfire ${a.version} is available: `, h('a', { href: a.pageUrl, target: '_blank', rel: 'noopener noreferrer' }, 'download it'), '.');
+    else st.textContent = u && u.error ? u.error : u && u.checkedAt ? 'You\'re up to date.' : '';
+  }
+}
+async function refreshUpdate() { try { showUpdate(await api('/api/update')); } catch { /* ignore */ } }
+$('#s-updates').onchange = async (e) => {
+  const box = e.currentTarget, want = box.checked;
+  try { await api('/api/settings', { checkUpdates: want }); toast(want ? 'Watchfire will check for updates' : 'Update checks are off'); }
+  catch (err) { box.checked = !want; toast(err.message, 'bad'); }
+};
+$('#s-upd-check').onclick = async (e) => {
+  const b = e.currentTarget; b.disabled = true;
+  try { showUpdate(await api('/api/update/check', {})); } catch (err) { toast(err.message, 'bad'); } finally { b.disabled = false; }
+};
+refreshUpdate();
+setTimeout(refreshUpdate, 30000); // the first check runs ~20 s after Watchfire starts
+setInterval(refreshUpdate, 30 * 60000);
+
 async function loadSettings() {
   try {
     const s = await api('/api/settings');
@@ -663,7 +698,9 @@ async function loadSettings() {
     $('#s-startup-note').textContent = s.canStartup ? '' : 'Available in the packaged Watchfire build only.';
     $('#s-tray-note').textContent = s.trayActive ? 'Closing this window leaves Watchfire running in the system tray. Use the tray icon, or the buttons below, to quit.' : 'Closing this window quits Watchfire. Your forwards stay open on the router unless you use "Quit & close forwards".';
     $('#s-restore').checked = s.restore !== false;
-    $('#s-version').textContent = s.version ? `Watchfire ${s.version}` : '';
+    $('#s-version').textContent = s.version ? `Watchfire ${s.version}.` : '';
+    $('#s-updates').checked = s.checkUpdates !== false;
+    showUpdate({ ...s.update, enabled: s.checkUpdates });
     drawThemes(s.theme || 'flame');
   } catch { /* ignore */ }
 }

@@ -69,7 +69,7 @@ function loadPrefs() {
   const s = readSettingsFile();
   const list = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.length <= 80).slice(0, 300) : []);
   const theme = ['flame', 'void', 'light', 'contrast'].includes(s.theme) ? s.theme : 'flame'; // colour theme, picked in Settings
-  return { restore: s.restore !== false, favs: list(s.favs), collapsed: list(s.collapsed), theme }; // restoring forwards is on unless the user turned it off
+  return { restore: s.restore !== false, favs: list(s.favs), collapsed: list(s.collapsed), theme, checkUpdates: s.checkUpdates !== false }; // restoring forwards is on unless the user turned it off
 }
 function savePrefs(partial) {
   fs.mkdirSync(dataDir, { recursive: true });
