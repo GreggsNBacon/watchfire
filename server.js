@@ -373,8 +373,45 @@ async function quitApp() {
   process.exit(0);
 }
 
+// ---------- update check ----------
+// Asks GitHub for Watchfire's latest release when Watchfire starts and every 12 hours (unless turned off in Settings).
+// One small request with no personal details. Watchfire only shows a link: it often comes inside Emberkeep's installer,
+// which owns the exe, so it never replaces itself.
+const UPDATE_URL = process.env.WATCHFIRE_UPDATE_URL || 'https://api.github.com/repos/GreggsNBacon/watchfire/releases/latest';
+const RELEASES_PAGE = 'https://github.com/GreggsNBacon/watchfire/releases/latest';
+const update = { latest: null, available: null, checkedAt: null, error: null };
+const verParts = (v) => String(v).replace(/^v/i, '').split(/[.-]/).slice(0, 3).map((n) => parseInt(n, 10) || 0);
+function isNewer(a, b) {
+  const x = verParts(a), y = verParts(b);
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i];
+  return false;
+}
+async function checkForUpdate() {
+  try {
+    const r = await fetch(UPDATE_URL, { headers: { 'User-Agent': `Watchfire/${VERSION}`, Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(15000) });
+    if (!r.ok) throw new Error(`GitHub answered ${r.status}`);
+    const j = await r.json();
+    const latest = String(j.tag_name || '').replace(/^v/i, '');
+    update.latest = latest || null;
+    const page = typeof j.html_url === 'string' && /^https?:\/\//.test(j.html_url) ? j.html_url : RELEASES_PAGE;
+    update.available = latest && isNewer(latest, VERSION) ? { version: latest, title: String(j.name || latest), pageUrl: page } : null;
+    update.error = null;
+  } catch (e) {
+    update.error = `Couldn't check for updates: ${e.message}`;
+  }
+  update.checkedAt = new Date().toISOString();
+  return update;
+}
+function startUpdateChecks() {
+  const tick = () => { if (store.loadPrefs().checkUpdates) checkForUpdate().catch(() => {}); };
+  setTimeout(tick, 20000); // after start-up has settled
+  setInterval(tick, 12 * 60 * 60 * 1000);
+}
+
 async function settingsPayload() {
   return {
+    checkUpdates: store.loadPrefs().checkUpdates,
+    update,
     hasSgdbKey: !!art.getSgdbKey(),
     restore: store.loadPrefs().restore,
     theme: store.loadPrefs().theme,
@@ -531,6 +568,8 @@ const server = http.createServer(async (req, res) => {
       catch (e) { return send(res, 200, { running: [], error: e.message }); }
     }
     if (req.method === 'GET' && url.pathname === '/api/settings') return send(res, 200, await settingsPayload());
+    if (req.method === 'GET' && url.pathname === '/api/update') return send(res, 200, { enabled: store.loadPrefs().checkUpdates, current: VERSION, ...update });
+    if (req.method === 'POST' && url.pathname === '/api/update/check') return send(res, 200, { enabled: store.loadPrefs().checkUpdates, current: VERSION, ...(await checkForUpdate()) });
     if (req.method === 'POST' && url.pathname === '/api/settings') {
       const body = await readJson(req);
       if ('sgdbKey' in body) { art.setSgdbKey(body.sgdbKey); artMisses.clear(); }
@@ -539,6 +578,10 @@ const server = http.createServer(async (req, res) => {
       if ('favs' in body) store.savePrefs({ favs: strList(body.favs) });
       if ('collapsed' in body) store.savePrefs({ collapsed: strList(body.collapsed) });
       if ('theme' in body) store.savePrefs({ theme: String(body.theme) });
+      if ('checkUpdates' in body) {
+        store.savePrefs({ checkUpdates: !!body.checkUpdates });
+        if (body.checkUpdates && !update.checkedAt) checkForUpdate().catch(() => {});
+      }
       if ('startup' in body) {
         if (!sea) return send(res, 400, { error: 'Starting with the system is only available in the packaged Watchfire build.' });
         await autostart.setEnabled(!!body.startup, process.execPath);
@@ -736,6 +779,7 @@ function httpLocal(port, method, pathName) {
     bootstrap().catch(() => {});
     startupEnabled().catch(() => {}); // warm the cache so the tray's first menu is right
     setInterval(() => refreshSnapshot().catch(() => {}), 60000);
+    startUpdateChecks();
 
     if (!process.argv.includes('--no-tray')) startTray();
     if (!process.argv.includes('--no-window') && !background) openWindow(url);
