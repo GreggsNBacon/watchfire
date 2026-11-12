@@ -18,6 +18,13 @@ Watchfire also comes with [Emberkeep](https://github.com/GreggsNBacon/emberkeep)
 
 Windows may show a SmartScreen warning the first time because the exe isn't code-signed. Choose **More info → Run anyway**.
 
+### Linux
+
+- **Ubuntu, Debian, Mint and others based on them:** download `watchfire_<version>_amd64.deb` and install it with `sudo apt install ./watchfire_<version>_amd64.deb` (or open it in your software installer). Watchfire is then in your apps menu.
+- **Any other Linux:** download `Watchfire-<version>-linux-x64.tar.gz`, unpack it and run `./install.sh`. It installs for your user only, no sudo.
+
+On Linux, Watchfire opens in its own window when Chrome, Chromium, Edge, Brave or Vivaldi is installed, otherwise in a browser tab. There's no tray icon. On a server without a desktop, run `watchfire --port 8790` and open it through an SSH tunnel (`ssh -L 8790:127.0.0.1:8790 you@server`).
+
 ## Using it
 
 1. Make sure **UPnP** is turned on in your router's settings. It usually is.
@@ -77,7 +84,7 @@ node server.js        # or Watchfire.bat / Watchfire.sh
 
 Options: `--port <n>` to pick the port, `--no-tray`, `--no-window`, `--background` (start in the tray only).
 
-Watchfire also runs on Linux (no tray icon; it opens in your browser). On Windows it opens in its own window, using the WebView2 runtime that comes with Windows.
+Watchfire also runs on Linux (no tray icon; it opens in an app window or your browser; see [Linux](#linux)). On Windows it opens in its own window, using the WebView2 runtime that comes with Windows.
 
 Environment variables (the old `PORTHOP_*` names still work):
 
@@ -93,7 +100,10 @@ Environment variables (the old `PORTHOP_*` names still work):
 ```sh
 npm install
 node build.js         # writes dist/Watchfire.exe
+node build.js --linux # writes dist/watchfire, dist/watchfire_<version>_amd64.deb and dist/Watchfire-<version>-linux-x64.tar.gz
 ```
+
+`--linux` works from Windows too: it downloads the official Node.js for Linux of the same version (checked against nodejs.org's SHA-256 list) into `.cache/` and builds on it. The [Linux workflow](.github/workflows/linux.yml) installs and runs the packages on Ubuntu.
 
 `build.js` packages Watchfire as a Node single-executable app and stamps the exe with Watchfire's name, icon and version. Versions are `1.2.<commit count>`.
 

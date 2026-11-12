@@ -736,8 +736,8 @@ function openBrowserWindow(url) {
     launch('open', [url]);
   } else {
     // A Chromium-family browser gives the borderless app window; anything else falls back to the default browser.
-    const exe = findInPath(['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge', 'microsoft-edge-stable', 'brave-browser', 'brave']);
-    if (exe) launch(exe, [`--app=${url}`, '--window-size=1180,800']);
+    const exe = findInPath(['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge', 'microsoft-edge-stable', 'brave-browser', 'brave', 'vivaldi']);
+    if (exe) launch(exe, [`--app=${url}`, '--window-size=1180,800', '--class=Watchfire']);
     else launch('xdg-open', [url]);
   }
 }

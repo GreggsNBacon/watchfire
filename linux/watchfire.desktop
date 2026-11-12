@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Watchfire
+GenericName=Port forwarding for game servers
+Comment=Open ports on your router so friends can join your game servers
+Exec=watchfire
+Icon=watchfire
+Terminal=false
+Categories=Network;Game;
+Keywords=upnp;port;forward;router;server;minecraft;valheim;
+StartupWMClass=Watchfire

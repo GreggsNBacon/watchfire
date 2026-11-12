@@ -2,3 +2,4 @@ dist/
 releases/
 node_modules/
 art/
+.cache/
