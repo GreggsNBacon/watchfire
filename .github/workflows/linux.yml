@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0 # the version number counts commits
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '26.13.0' # --build-sea needs Node 25.5+; same as the Windows build
 
       - name: Build the Linux packages
         run: node build.js --linux
