@@ -1,0 +1,59 @@
+# Builds the Linux packages and tests them on a real Ubuntu machine: installs the .deb, runs Watchfire headless
+# (no display, as on a server) and checks its page and API, then tries the tarball's per-user install.
+name: Linux
+
+on:
+  push:
+    branches: [linux]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the version number counts commits
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.13.0' # --build-sea needs Node 25.5+; same as the Windows build
+
+      - name: Build the Linux packages
+        run: node build.js --linux
+
+      - name: Install the .deb and run it headless
+        run: |
+          sudo apt-get install -y ./dist/watchfire_*_amd64.deb
+          test -x /usr/bin/watchfire
+          test -f /usr/share/applications/watchfire.desktop
+          watchfire --port 8790 > watchfire.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8790/api/hello > hello.json && break; sleep 1; done
+          cat watchfire.log
+          cat hello.json
+          grep -q '"app":"watchfire"' hello.json
+          curl -sf http://127.0.0.1:8790/ | grep -qi watchfire
+          curl -sf http://127.0.0.1:8790/api/settings | grep -q '"version"'
+          grep -q 'no display detected' watchfire.log
+          kill %1
+          sudo apt-get remove -y watchfire
+          ! test -e /usr/bin/watchfire
+
+      - name: Tarball install for one user
+        run: |
+          mkdir t && tar -xzf dist/Watchfire-*-linux-x64.tar.gz -C t
+          cd t/watchfire-*
+          ./install.sh
+          test -x ~/.local/bin/watchfire
+          grep -q "^Exec=$HOME/.local/bin/watchfire" ~/.local/share/applications/watchfire.desktop
+          ./install.sh --remove
+          ! test -e ~/.local/bin/watchfire
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-packages
+          path: |
+            dist/*.deb
+            dist/*-linux-x64.tar.gz
